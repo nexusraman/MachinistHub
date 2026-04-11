@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
       // Check available inventory for this rotor size
       // Records without a type field (old data) are treated as 'received'
       const all = await FanRotorInventory.find({ rotorSize })
-      const received = all.filter((r: { type?: string }) => !r.type || r.type === 'received').reduce((s: number, r: { quantity: number }) => s + r.quantity, 0)
-      const dispatched = all.filter((r: { type?: string }) => r.type === 'dispatched').reduce((s: number, r: { quantity: number }) => s + r.quantity, 0)
+      const received = all.filter(r => !r.type || r.type === 'received').reduce((s: number, r) => s + (r.quantity ?? 0), 0)
+      const dispatched = all.filter(r => r.type === 'dispatched').reduce((s: number, r) => s + (r.quantity ?? 0), 0)
       const available = received - dispatched
       if (quantity > available) {
         return err(`Only ${available} unit(s) of ${rotorSize} in inventory`, 400)
