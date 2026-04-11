@@ -7,19 +7,21 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import LinkIcon from '@mui/icons-material/Link'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import axios from 'axios'
 import {
-  Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
-  FormControl, Grid, IconButton, MenuItem, Select,
-  TextField, ToggleButton, ToggleButtonGroup, Typography, useMediaQuery, useTheme,
+  Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, FormControl, Grid, IconButton, MenuItem, Select,
+  Switch, TextField, ToggleButton, ToggleButtonGroup, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import dayjs from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
 
 type Snack = { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }
 const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
+const defaultLinkedExpense = { payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '' }
 const reasons = {
   expense: ['Labour Cost', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc'],
   income: ['Fan Payment', 'Submersible Payment', 'Scrap Payment', 'Misc'],
@@ -44,13 +46,33 @@ const ExpenseTracker = () => {
   const [singleEntry, setSingleEntry] = useState({ ...defaultRow })
   const [submitting, setSubmitting] = useState(false)
 
+  // Linked expense when adding income
+  const [addLinkedExpense, setAddLinkedExpense] = useState(false)
+  const [linkedExpense, setLinkedExpense] = useState({ ...defaultLinkedExpense })
+
   useEffect(() => {
     axios.get('/api/client').then(res => setClients(res.data.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))))
   }, [])
 
+  // Reset linked expense when switching away from income
+  useEffect(() => {
+    if (category !== 'income') {
+      setAddLinkedExpense(false)
+      setLinkedExpense({ ...defaultLinkedExpense })
+    }
+  }, [category])
+
   const showSnack = (message: string, severity: 'success' | 'error' = 'success') => setSnackbar({ open: true, message, severity })
   const set = (field: string, val: unknown) => setSingleEntry(p => ({ ...p, [field]: val }))
+  const setLinked = (field: string, val: unknown) => setLinkedExpense(p => ({ ...p, [field]: val }))
   const handleRowChange = (i: number, field: string, val: unknown) => { const next = [...rows]; (next[i] as Record<string, unknown>)[field] = val; setRows(next) }
+
+  const isLinkedExpenseValid = () => {
+    if (!addLinkedExpense) return true
+    if (!linkedExpense.payee || !linkedExpense.reason || !linkedExpense.amount || !linkedExpense.medium) return false
+    if (linkedExpense.medium === 'Transfer' && !linkedExpense.transferMethod) return false
+    return true
+  }
 
   const isValid = () => {
     const s = singleEntry
@@ -58,6 +80,7 @@ const ExpenseTracker = () => {
     if (s.medium === 'Transfer' && !s.transferMethod) return false
     if (category === 'income' && !s.client) return false
     if (category === 'expense' && !s.payee) return false
+    if (!isLinkedExpenseValid()) return false
     return true
   }
 
@@ -67,8 +90,27 @@ const ExpenseTracker = () => {
     const payload = { reason: singleEntry.reason, amount: singleEntry.amount, date: singleEntry.date, comment: singleEntry.comment, medium: singleEntry.medium, transferMethod: singleEntry.medium === 'Transfer' ? singleEntry.transferMethod : '', ...(category === 'income' ? { client: singleEntry.client } : { payee: singleEntry.payee }) }
     try {
       await axios.post(`/api/${category}`, payload)
-      showSnack('Entry submitted successfully!')
+
+      // Post linked expense if toggled on
+      if (category === 'income' && addLinkedExpense) {
+        const expPayload = {
+          payee: linkedExpense.payee,
+          reason: linkedExpense.reason,
+          amount: linkedExpense.amount,
+          date: singleEntry.date,
+          medium: linkedExpense.medium,
+          transferMethod: linkedExpense.medium === 'Transfer' ? linkedExpense.transferMethod : '',
+          comment: linkedExpense.comment,
+        }
+        await axios.post('/api/expense', expPayload)
+        showSnack('Income and linked expense submitted!')
+      } else {
+        showSnack('Entry submitted successfully!')
+      }
+
       setSingleEntry({ ...defaultRow })
+      setLinkedExpense({ ...defaultLinkedExpense })
+      setAddLinkedExpense(false)
     } catch (err: unknown) { showSnack((err as Error).message || 'Something went wrong.', 'error') }
     finally { setSubmitting(false) }
   }
@@ -195,10 +237,87 @@ const ExpenseTracker = () => {
             </Grid>
           </Grid>
 
+          {/* Linked expense toggle — only shown for income */}
+          {isIncome && (
+            <Box mb={2}>
+              <Divider sx={{ mb: 2 }} />
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box display="flex" alignItems="center" gap={1}>
+                  <LinkIcon sx={{ color: '#e65100', fontSize: 20 }} />
+                  <Typography fontWeight={700} fontSize={14} color="#e65100">Also record an expense</Typography>
+                  <Typography variant="caption" color="text.secondary">(e.g. paid to employee / supplier)</Typography>
+                </Box>
+                <Switch checked={addLinkedExpense} onChange={e => setAddLinkedExpense(e.target.checked)} color="warning" />
+              </Box>
+
+              <Collapse in={addLinkedExpense}>
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#fff8f0', border: '1px solid #ffcc80', borderRadius: 2.5 }}>
+                  <Typography variant="caption" fontWeight={700} color="#e65100" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 1.5, display: 'block' }}>
+                    Linked Expense Details
+                  </Typography>
+
+                  <Box mb={2}>
+                    <Label>Payee</Label>
+                    <TextField fullWidth placeholder="Employee / supplier name" value={linkedExpense.payee} onChange={e => setLinked('payee', e.target.value)}
+                      size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  </Box>
+
+                  <Grid container spacing={2} mb={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Label>Reason</Label>
+                      <FormControl fullWidth size="small">
+                        <Select value={linkedExpense.reason} onChange={e => setLinked('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                          <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
+                          {reasons.expense.map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25 }}>{r}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Label>Amount (₹)</Label>
+                      <TextField fullWidth type="number" placeholder="0" value={linkedExpense.amount} onChange={e => setLinked('amount', e.target.value)}
+                        size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                    </Grid>
+                  </Grid>
+
+                  <Grid container spacing={2} mb={2}>
+                    <Grid item xs={linkedExpense.medium === 'Transfer' ? 6 : 12}>
+                      <Label>Medium</Label>
+                      <ToggleButtonGroup value={linkedExpense.medium} exclusive onChange={(_, v) => v && setLinked('medium', v)} fullWidth sx={{ gap: 1 }}>
+                        {['Cash', 'Transfer'].map(m => (
+                          <ToggleButton key={m} value={m} sx={{ flex: 1, py: 1, textTransform: 'none', fontWeight: 600, fontSize: 13, borderRadius: '8px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2 !important' } }}>
+                            {m}
+                          </ToggleButton>
+                        ))}
+                      </ToggleButtonGroup>
+                    </Grid>
+                    {linkedExpense.medium === 'Transfer' && (
+                      <Grid item xs={6}>
+                        <Label>Transfer Method</Label>
+                        <FormControl fullWidth size="small">
+                          <Select value={linkedExpense.transferMethod} onChange={e => setLinked('transferMethod', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                            <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select…</em></MenuItem>
+                            <MenuItem value="UPI">UPI</MenuItem>
+                            <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+
+                  <Box>
+                    <Label>Comment (optional)</Label>
+                    <TextField fullWidth placeholder="Add a note…" value={linkedExpense.comment} onChange={e => setLinked('comment', e.target.value)}
+                      size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  </Box>
+                </Box>
+              </Collapse>
+            </Box>
+          )}
+
           <Button fullWidth variant="contained" size="large" onClick={handleSubmit} disabled={!isValid() || submitting}
             startIcon={<CheckCircleIcon />}
             sx={{ py: 1.75, fontSize: 16, fontWeight: 700, borderRadius: 2.5, textTransform: 'none', bgcolor: accentColor, '&:hover': { bgcolor: isIncome ? '#1b5e20' : '#b71c1c' } }}>
-            {submitting ? 'Submitting…' : `Submit ${isIncome ? 'Income' : 'Expense'}`}
+            {submitting ? 'Submitting…' : `Submit ${isIncome ? 'Income' : 'Expense'}${isIncome && addLinkedExpense ? ' + Expense' : ''}`}
           </Button>
 
           <Button fullWidth variant="text" startIcon={<AddIcon />} onClick={() => setOpen(true)}
