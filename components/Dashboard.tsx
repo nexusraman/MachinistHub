@@ -169,7 +169,7 @@ export default function Dashboard() {
     responsive: true, maintainAspectRatio: false,
     plugins: {
       legend: { position: 'top' as const, labels: { boxWidth: 12, font: { size: 12 } } },
-      tooltip: { callbacks: { label: (ctx: { dataset: { label: string }; parsed: { y: number } }) => `${ctx.dataset.label}: ₹${ctx.parsed.y.toLocaleString('en-IN')}` } },
+      tooltip: { callbacks: { label: (ctx: import('chart.js').TooltipItem<'line'>) => `${ctx.dataset.label ?? ''}: ₹${(ctx.parsed.y ?? 0).toLocaleString('en-IN')}` } },
     },
     scales: {
       x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 11 } } },

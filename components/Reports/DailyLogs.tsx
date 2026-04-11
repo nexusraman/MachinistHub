@@ -14,7 +14,7 @@ import SnackbarMessage from '../Utils/Snackbar'
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
-const HeadCell = ({ children }: { children: React.ReactNode }) => (
+const HeadCell = ({ children }: { children?: React.ReactNode }) => (
   <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, py: 1.25, bgcolor: '#f8fafc', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>
     {children}
   </TableCell>
@@ -76,7 +76,7 @@ const DailyLogs = () => {
                 <HeadCell>Related To</HeadCell>
                 <HeadCell>Comment</HeadCell>
                 <HeadCell>Date</HeadCell>
-                <HeadCell></HeadCell>
+           <HeadCell></HeadCell>     
               </TableRow>
             </TableHead>
             <TableBody>
