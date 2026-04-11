@@ -8,6 +8,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LinkIcon from '@mui/icons-material/Link'
+import HomeIcon from '@mui/icons-material/Home'
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import axios from 'axios'
@@ -22,10 +23,12 @@ import SnackbarMessage from '../Utils/Snackbar'
 type Snack = { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }
 const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
 const defaultLinkedExpense = { payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '' }
+const defaultPersonal = { category: '', description: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
 const reasons = {
   expense: ['Labour Cost', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc'],
   income: ['Fan Payment', 'Submersible Payment', 'Scrap Payment', 'Misc'],
 }
+const personalCategories = ['Groceries', 'Medical', 'School / Education', 'Rent', 'Utilities', 'Travel', 'Clothing', 'Entertainment', 'Misc']
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>
@@ -50,6 +53,10 @@ const ExpenseTracker = () => {
   const [addLinkedExpense, setAddLinkedExpense] = useState(false)
   const [linkedExpense, setLinkedExpense] = useState({ ...defaultLinkedExpense })
 
+  // Personal / family expense
+  const [personal, setPersonal] = useState({ ...defaultPersonal })
+  const [personalSubmitting, setPersonalSubmitting] = useState(false)
+
   useEffect(() => {
     axios.get('/api/client').then(res => setClients(res.data.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))))
   }, [])
@@ -65,6 +72,32 @@ const ExpenseTracker = () => {
   const showSnack = (message: string, severity: 'success' | 'error' = 'success') => setSnackbar({ open: true, message, severity })
   const set = (field: string, val: unknown) => setSingleEntry(p => ({ ...p, [field]: val }))
   const setLinked = (field: string, val: unknown) => setLinkedExpense(p => ({ ...p, [field]: val }))
+  const setPer = (field: string, val: unknown) => setPersonal(p => ({ ...p, [field]: val }))
+
+  const isPersonalValid = () => {
+    if (!personal.category || !personal.amount || !personal.date || !personal.medium) return false
+    if (personal.medium === 'Transfer' && !personal.transferMethod) return false
+    return true
+  }
+
+  const handlePersonalSubmit = async () => {
+    if (!isPersonalValid()) { showSnack('Please fill all required fields.', 'error'); return }
+    setPersonalSubmitting(true)
+    try {
+      await axios.post('/api/personal-expense', {
+        category: personal.category,
+        description: personal.description,
+        amount: personal.amount,
+        date: personal.date,
+        medium: personal.medium,
+        transferMethod: personal.medium === 'Transfer' ? personal.transferMethod : '',
+        comment: personal.comment,
+      })
+      showSnack('Personal expense submitted!')
+      setPersonal({ ...defaultPersonal })
+    } catch (err: unknown) { showSnack((err as Error).message || 'Something went wrong.', 'error') }
+    finally { setPersonalSubmitting(false) }
+  }
   const handleRowChange = (i: number, field: string, val: unknown) => { const next = [...rows]; (next[i] as Record<string, unknown>)[field] = val; setRows(next) }
 
   const isLinkedExpenseValid = () => {
@@ -135,7 +168,8 @@ const ExpenseTracker = () => {
   }
 
   const isIncome = category === 'income'
-  const accentColor = isIncome ? '#2e7d32' : '#c62828'
+  const isPersonal = category === 'personal'
+  const accentColor = isIncome ? '#2e7d32' : isPersonal ? '#6a1b9a' : '#c62828'
 
   return (
     <>
@@ -152,15 +186,93 @@ const ExpenseTracker = () => {
           <Box mb={3}>
             <Label>Type</Label>
             <ToggleButtonGroup value={category} exclusive onChange={(_, v) => v && setCategory(v)} fullWidth sx={{ gap: 1 }}>
-              <ToggleButton value="expense" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 15, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#ffebee', color: '#c62828', borderColor: '#c62828 !important' } }}>
+              <ToggleButton value="expense" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#ffebee', color: '#c62828', borderColor: '#c62828 !important' } }}>
                 <TrendingDownIcon sx={{ mr: 0.75, fontSize: 18 }} /> Expense
               </ToggleButton>
-              <ToggleButton value="income" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 15, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e8f5e9', color: '#2e7d32', borderColor: '#2e7d32 !important' } }}>
+              <ToggleButton value="income" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e8f5e9', color: '#2e7d32', borderColor: '#2e7d32 !important' } }}>
                 <TrendingUpIcon sx={{ mr: 0.75, fontSize: 18 }} /> Income
+              </ToggleButton>
+              <ToggleButton value="personal" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#f3e5f5', color: '#6a1b9a', borderColor: '#6a1b9a !important' } }}>
+                <HomeIcon sx={{ mr: 0.75, fontSize: 18 }} /> Personal
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
 
+          {/* ── Personal / Family Expense Form ── */}
+          {isPersonal && (
+            <>
+              <Box mb={2.5}>
+                <Label>Category</Label>
+                <FormControl fullWidth>
+                  <Select value={personal.category} onChange={e => setPer('category', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                    <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select category…</em></MenuItem>
+                    {personalCategories.map((c, i) => <MenuItem key={i} value={c} sx={{ py: 1.25, fontSize: 15 }}>{c}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Box>
+
+              <Box mb={2.5}>
+                <Label>Description (optional)</Label>
+                <TextField fullWidth placeholder="What was it for?" value={personal.description} onChange={e => setPer('description', e.target.value)}
+                  inputProps={{ style: { fontSize: 15 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+              </Box>
+
+              <Box mb={2.5}>
+                <Label>Amount (₹)</Label>
+                <TextField fullWidth type="number" placeholder="0" value={personal.amount} onChange={e => setPer('amount', e.target.value)}
+                  inputProps={{ style: { fontSize: 18, fontWeight: 700 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+              </Box>
+
+              <Grid container spacing={2} mb={2.5}>
+                <Grid item xs={personal.medium === 'Transfer' ? 6 : 12}>
+                  <Label>Medium</Label>
+                  <ToggleButtonGroup value={personal.medium} exclusive onChange={(_, v) => v && setPer('medium', v)} fullWidth sx={{ gap: 1 }}>
+                    {['Cash', 'Transfer'].map(m => (
+                      <ToggleButton key={m} value={m} sx={{ flex: 1, py: 1.25, textTransform: 'none', fontWeight: 600, borderRadius: '8px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2 !important' } }}>
+                        {m}
+                      </ToggleButton>
+                    ))}
+                  </ToggleButtonGroup>
+                </Grid>
+                {personal.medium === 'Transfer' && (
+                  <Grid item xs={6}>
+                    <Label>Transfer Method</Label>
+                    <FormControl fullWidth>
+                      <Select value={personal.transferMethod} onChange={e => setPer('transferMethod', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                        <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select…</em></MenuItem>
+                        <MenuItem value="UPI" sx={{ py: 1.25 }}>UPI</MenuItem>
+                        <MenuItem value="Bank Transfer" sx={{ py: 1.25 }}>Bank Transfer</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+              </Grid>
+
+              <Grid container spacing={2} mb={3}>
+                <Grid item xs={12} sm={6}>
+                  <Label>Comment (optional)</Label>
+                  <TextField fullWidth placeholder="Add a note…" value={personal.comment} onChange={e => setPer('comment', e.target.value)}
+                    inputProps={{ style: { fontSize: 15 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Label>Date</Label>
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker value={personal.date} onChange={v => setPer('date', v ?? dayjs())}
+                      renderInput={(params) => <TextField {...params} fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} inputProps={{ ...params.inputProps, style: { fontSize: 15 } }} />} />
+                  </LocalizationProvider>
+                </Grid>
+              </Grid>
+
+              <Button fullWidth variant="contained" size="large" onClick={handlePersonalSubmit} disabled={!isPersonalValid() || personalSubmitting}
+                startIcon={<CheckCircleIcon />}
+                sx={{ py: 1.75, fontSize: 16, fontWeight: 700, borderRadius: 2.5, textTransform: 'none', bgcolor: '#6a1b9a', '&:hover': { bgcolor: '#4a148c' } }}>
+                {personalSubmitting ? 'Submitting…' : 'Submit Personal Expense'}
+              </Button>
+            </>
+          )}
+
+          {/* ── Business Expense / Income Form ── */}
+          {!isPersonal && <>
           {/* Client / Payee */}
           <Box mb={2.5}>
             <Label>{isIncome ? 'Client' : 'Payee'}</Label>
@@ -324,6 +436,7 @@ const ExpenseTracker = () => {
             sx={{ mt: 1.5, textTransform: 'none', color: 'text.secondary', fontWeight: 600 }}>
             Add multiple entries
           </Button>
+          </>}
         </Box>
       </Box>
 

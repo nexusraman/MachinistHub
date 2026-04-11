@@ -12,7 +12,7 @@ import RotateRightIcon from '@mui/icons-material/RotateRight'
 import axios from 'axios'
 import SnackbarMessage from '../Utils/Snackbar'
 
-interface Props { customDates?: [number, number]; calenderValue?: string }
+interface Props { customDates?: [number, number]; calenderValue?: string; entryType?: 'received' | 'dispatched' }
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -50,6 +50,14 @@ const DailyActivities = (props: Props) => {
     else if (props.calenderValue === 'weekly' || props.calenderValue === 'monthly') filtered = fanData.filter(d => new Date(d.date as string).getTime() >= startDate.getTime())
     else if (props.customDates?.[0] && props.customDates?.[1]) filtered = fanData.filter(d => new Date(d.date as string).getTime() >= props.customDates![0] && new Date(d.date as string).getTime() <= props.customDates![1])
 
+    // Filter by entry type if specified; records without a type field count as 'received'
+    if (props.entryType) {
+      filtered = filtered.filter(d => {
+        const t = (d.type as string) || 'received'
+        return t === props.entryType
+      })
+    }
+
     setFilteredData(filtered.sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime()))
   }, [props.calenderValue, fanData, props.customDates])
 
@@ -64,15 +72,22 @@ const DailyActivities = (props: Props) => {
 
   const rows = filteredData.filter(r => (r.client as string).toLowerCase().includes(searched.toLowerCase()))
 
+  const isDispatched = props.entryType === 'dispatched'
+  const accentColor = isDispatched ? '#6a1b9a' : '#f57c00'
+  const title = isDispatched ? 'Dispatched (Rotor + Shaft)' : 'Received from Clients'
+  const chipSx = isDispatched
+    ? { bgcolor: '#f3e5f5', color: '#6a1b9a', fontWeight: 700 }
+    : { bgcolor: '#fff3e0', color: '#e65100', fontWeight: 700 }
+
   return (
     <>
       <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 3, overflow: 'hidden', bgcolor: '#fff' }}>
-        <Box sx={{ height: 4, bgcolor: '#f57c00' }} />
+        <Box sx={{ height: 4, bgcolor: accentColor }} />
         <Box sx={{ px: 2.5, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f4f8', flexWrap: 'wrap', gap: 1 }}>
           <Box display="flex" alignItems="center" gap={1}>
-            <RotateRightIcon sx={{ color: '#f57c00', fontSize: 20 }} />
-            <Typography fontWeight={700}>Fan Rotor Inventory</Typography>
-            <Chip label={rows.length} size="small" sx={{ bgcolor: '#fff3e0', color: '#e65100', fontWeight: 700 }} />
+            <RotateRightIcon sx={{ color: accentColor, fontSize: 20 }} />
+            <Typography fontWeight={700}>{title}</Typography>
+            <Chip label={rows.length} size="small" sx={chipSx} />
           </Box>
           <TextField
             size="small" placeholder="Search client…" value={searched}
@@ -89,6 +104,7 @@ const DailyActivities = (props: Props) => {
                 <HeadCell>Client</HeadCell>
                 <HeadCell>Qty</HeadCell>
                 <HeadCell>Rotor Size</HeadCell>
+                {isDispatched && <HeadCell>Shaft Size</HeadCell>}
                 <HeadCell>Date</HeadCell>
                 <HeadCell></HeadCell>
               </TableRow>
@@ -99,6 +115,7 @@ const DailyActivities = (props: Props) => {
                   <TableCell sx={{ fontWeight: 600 }}>{row.client as string}</TableCell>
                   <TableCell>{row.quantity as string}</TableCell>
                   <TableCell><Chip label={row.rotorSize as string} size="small" sx={{ bgcolor: '#fff9c4', color: '#f57f17', fontWeight: 600, fontSize: 11 }} /></TableCell>
+                  {isDispatched && <TableCell><Chip label={(row.shaftSize as string) || '—'} size="small" sx={{ bgcolor: '#ede7f6', color: '#4a148c', fontWeight: 600, fontSize: 11 }} /></TableCell>}
                   <TableCell sx={{ color: 'text.secondary', fontSize: 13 }}>{fmtDate(row.date as string)}</TableCell>
                   <TableCell align="right">
                     <Tooltip title="Delete">
@@ -108,7 +125,7 @@ const DailyActivities = (props: Props) => {
                 </TableRow>
               ))}
               {rows.length === 0 && (
-                <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.disabled' }}>No records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isDispatched ? 6 : 5} align="center" sx={{ py: 4, color: 'text.disabled' }}>No records found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

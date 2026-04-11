@@ -20,7 +20,9 @@ const HeadCell = ({ children }: { children?: React.ReactNode }) => (
   </TableCell>
 )
 
-const DailyLogs = () => {
+interface Props { customDates?: [number, number] }
+
+const DailyLogs = ({ customDates }: Props) => {
   const [logs, setLogs] = useState<Record<string, unknown>[]>([])
   const [searched, setSearched] = useState('')
   const [page, setPage] = useState(0)
@@ -46,7 +48,14 @@ const DailyLogs = () => {
     finally { setDialogOpen(false); setSelectedLog(null) }
   }
 
-  const rows = logs.filter(log =>
+  const filtered = customDates?.[0] && customDates?.[1]
+    ? logs.filter(log => {
+        const t = new Date(log.date as string).getTime()
+        return t >= customDates![0] && t <= customDates![1] + 86400000
+      })
+    : logs
+
+  const rows = filtered.filter(log =>
     (log.relatedTo as string).toLowerCase().includes(searched.toLowerCase()) ||
     ((log.comment as string) || '').toLowerCase().includes(searched.toLowerCase())
   )

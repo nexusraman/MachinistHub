@@ -4,18 +4,15 @@ import React, { useState } from 'react'
 import { Box, Tab, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material'
 import StorageIcon from '@mui/icons-material/Storage'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
-import RotateRightIcon from '@mui/icons-material/RotateRight'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import DataEntry from './DataEntry'
 import ExpenseTracker from './ExpenseTracker'
-import RotorEntry from './RotorEntry'
 import DailyLogs from './DailyLogs'
 
 const TABS = [
   { label: 'Data Entry', icon: <StorageIcon fontSize="small" />, value: 0 },
   { label: 'Expense / Income', icon: <AccountBalanceWalletIcon fontSize="small" />, value: 1 },
-  { label: 'Rotors', icon: <RotateRightIcon fontSize="small" />, value: 2 },
-  { label: 'Daily Logs', icon: <AssignmentIcon fontSize="small" />, value: 3 },
+  { label: 'Daily Logs', icon: <AssignmentIcon fontSize="small" />, value: 2 },
 ]
 
 const InputForm = () => {
@@ -56,8 +53,7 @@ const InputForm = () => {
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 680, mx: 'auto' }}>
         {tab === 0 && <DataEntry />}
         {tab === 1 && <ExpenseTracker />}
-        {tab === 2 && <RotorEntry />}
-        {tab === 3 && <DailyLogs />}
+        {tab === 2 && <DailyLogs />}
       </Box>
     </>
   )

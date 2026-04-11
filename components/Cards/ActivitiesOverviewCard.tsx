@@ -36,8 +36,8 @@ const ActivitiesOverviewCard = (props: Props) => {
 
   return (
     <CardComponent
-      FirstTitle="Submersible Units" FirstValue={totalSubmersible}
-      SecondTitle="Fan Units" SecondValue={totalFan}
+      FirstTitle="Submersible Units" FirstValue={String(totalSubmersible)}
+      SecondTitle="Fan Units" SecondValue={String(totalFan)}
       accentColor="#0288d1"
     />
   )
