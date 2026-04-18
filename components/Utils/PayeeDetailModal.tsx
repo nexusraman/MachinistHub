@@ -8,13 +8,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 
-interface Expense {
-  date: string
-  amount: number
-  reason?: string
-  medium?: string
-  comment?: string
-}
+type Expense = Record<string, unknown>
 
 interface Props {
   payee: string
@@ -32,9 +26,9 @@ const PayeeDetailModal = ({ payee, expenses, open, onClose }: Props) => {
       const p = (e as Record<string, unknown>).payee as string | undefined
       return p?.toLowerCase() === payee.toLowerCase()
     })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime())
 
-  const total = records.reduce((s, r) => s + Number(r.amount), 0)
+  const total = records.reduce((s, r) => s + Number(r.amount ?? 0), 0)
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -69,11 +63,11 @@ const PayeeDetailModal = ({ payee, expenses, open, onClose }: Props) => {
               <TableBody>
                 {records.map((r, i) => (
                   <TableRow key={i} hover sx={{ '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                    <TableCell sx={{ fontSize: 13, color: 'text.secondary' }}>{fmtDate(r.date)}</TableCell>
-                    <TableCell sx={{ fontSize: 13 }}>{r.reason || '—'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: '#c62828', fontSize: 13 }}>{fmtCur(r.amount)}</TableCell>
+                    <TableCell sx={{ fontSize: 13, color: 'text.secondary' }}>{fmtDate(r.date as string)}</TableCell>
+                    <TableCell sx={{ fontSize: 13 }}>{(r.reason as string) || '—'}</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#c62828', fontSize: 13 }}>{fmtCur(Number(r.amount ?? 0))}</TableCell>
                     <TableCell>
-                      <Chip label={r.medium || '—'} size="small" sx={{ fontSize: 11, bgcolor: '#f5f5f5' }} />
+                      <Chip label={(r.medium as string) || '—'} size="small" sx={{ fontSize: 11, bgcolor: '#f5f5f5' }} />
                     </TableCell>
                   </TableRow>
                 ))}
