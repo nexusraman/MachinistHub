@@ -15,7 +15,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import axios from 'axios'
 import { nanoid } from 'nanoid'
 import {
-  Box, Button, Chip, Divider, FormControl, Grid, IconButton, MenuItem, Paper,
+  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, FormControl, Grid, IconButton, MenuItem, Paper,
   Select, Tab, Table, TableBody, TableCell, TableHead, TableRow,
   Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material'
@@ -79,7 +80,7 @@ const SubmersibleForm = ({ clients }: { clients: { name: string; category: strin
 
   return (
     <>
-      {!showMulti ? (
+      {!showMulti && (
         <Box>
           <Box mb={2.5}>
             <Label>Client</Label>
@@ -123,12 +124,11 @@ const SubmersibleForm = ({ clients }: { clients: { name: string; category: strin
             Add multiple entries
           </Button>
         </Box>
-      ) : (
-        <Box>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-            <Typography fontWeight={700} fontSize={14}>Multiple Entries</Typography>
-            <Button size="small" onClick={() => setShowMulti(false)} sx={{ textTransform: 'none' }}>← Single entry</Button>
-          </Box>
+      )}
+
+      <Dialog open={showMulti} onClose={() => setShowMulti(false)} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16, pb: 1 }}>Multiple Entries</DialogTitle>
+        <DialogContent dividers sx={{ p: 2 }}>
           {rows.map((row, i) => (
             <Box key={i} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 2, mb: 1.5, bgcolor: '#fafafa' }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -167,10 +167,17 @@ const SubmersibleForm = ({ clients }: { clients: { name: string; category: strin
               </Grid>
             </Box>
           ))}
-          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => setRows([...rows, { ...defaultRow }])} sx={{ textTransform: 'none', borderRadius: 2, mb: 2 }}>Add Row</Button>
-          <Button fullWidth variant="contained" onClick={handleMultiSubmit} sx={{ py: 1.5, fontWeight: 700, borderRadius: 2.5, textTransform: 'none', bgcolor: '#0288d1' }}>Submit All</Button>
-        </Box>
-      )}
+          <Button variant="outlined" size="small" startIcon={<AddIcon />}
+            onClick={() => setRows([...rows, { ...defaultRow, date: rows[rows.length - 1].date }])}
+            sx={{ textTransform: 'none', borderRadius: 2 }}>
+            Add Row
+          </Button>
+        </DialogContent>
+        <DialogActions sx={{ px: 2, py: 1.5 }}>
+          <Button onClick={() => setShowMulti(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleMultiSubmit} sx={{ fontWeight: 700, borderRadius: 2, textTransform: 'none', bgcolor: '#0288d1' }}>Submit All</Button>
+        </DialogActions>
+      </Dialog>
       <SnackbarMessage open={snack.open} message={snack.message} severity={snack.severity} onClose={() => setSnack(p => ({ ...p, open: false }))} />
     </>
   )

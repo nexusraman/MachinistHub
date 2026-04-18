@@ -2,16 +2,24 @@
 
 import React, { useEffect, useState } from 'react'
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  IconButton, InputAdornment, Tab, Table, TableBody, TableCell, TableContainer,
-  TableHead, TablePagination, TableRow, Tabs, TextField, Tooltip, Typography,
+  Autocomplete, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  FormControl, IconButton, InputAdornment, MenuItem, Select, Tab, Table, TableBody,
+  TableCell, TableContainer, TableHead, TablePagination, TableRow, Tabs, TextField,
+  ToggleButton, ToggleButtonGroup, Tooltip, Typography,
 } from '@mui/material'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import dayjs, { Dayjs } from 'dayjs'
 import axios from 'axios'
 import SnackbarMessage from '../Utils/Snackbar'
+import PayeeDetailModal from '../Utils/PayeeDetailModal'
+
+const expenseReasons = ['Labour Cost', 'Raw Material', 'Logistics', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc']
 
 interface Props { customDates?: [number, number]; calenderValue?: string }
 
@@ -36,6 +44,18 @@ const DailyTransactions = (props: Props) => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteInfo, setDeleteInfo] = useState<Record<string, unknown> | null>(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' as 'success' | 'error' | 'info' | 'warning' })
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editData, setEditData] = useState<{
+    _id: string; payee: string; reason: string; amount: string;
+    medium: string; transferMethod: string; comment: string; date: Dayjs
+  } | null>(null)
+  const [employees, setEmployees] = useState<{ name: string; category: string }[]>([])
+  const [payeeModal, setPayeeModal] = useState<string | null>(null)
+
+  useEffect(() => {
+    axios.get('/api/employee').then(res => setEmployees(res.data)).catch(() => {})
+  }, [])
 
   const fetchData = async () => {
     try {
@@ -70,6 +90,68 @@ const DailyTransactions = (props: Props) => {
       fetchData()
     } catch { setSnackbar({ open: true, message: 'Failed to delete', severity: 'error' }) }
     finally { setDialogOpen(false); setDeleteInfo(null) }
+  }
+
+  const openEdit = (row: Record<string, unknown>) => {
+    setEditData({
+      _id: row._id as string,
+      payee: (row.payee as string) || '',
+      reason: (row.reason as string) || '',
+      amount: String(row.amount || ''),
+      medium: (row.medium as string) || 'Cash',
+      transferMethod: (row.transferMethod as string) || '',
+      comment: (row.comment as string) || '',
+      date: dayjs(row.date as string),
+    })
+    setEditDialogOpen(true)
+  }
+
+  const handleEditSave = async () => {
+    if (!editData) return
+    try {
+      await axios.patch(`/api/expense/${editData._id}`, {
+        payee: editData.payee,
+        reason: editData.reason,
+        amount: editData.amount,
+        medium: editData.medium,
+        transferMethod: editData.medium === 'Transfer' ? editData.transferMethod : '',
+        comment: editData.comment,
+        date: editData.date.toDate(),
+      })
+      setSnackbar({ open: true, message: 'Expense updated', severity: 'success' })
+      setEditDialogOpen(false)
+      fetchData()
+    } catch {
+      setSnackbar({ open: true, message: 'Failed to update', severity: 'error' })
+    }
+  }
+
+  const renderEditPayee = () => {
+    if (!editData) return null
+    const labourOptions = employees.filter(e => e.category === 'labour').map(e => e.name)
+    const supplierOptions = employees.filter(e => e.category === 'supplier').map(e => e.name)
+    const setPayee = (val: string) => setEditData(p => p ? { ...p, payee: val } : p)
+
+    if (editData.reason === 'Labour Cost') {
+      return (
+        <Autocomplete freeSolo options={labourOptions} value={editData.payee}
+          onInputChange={(_, val) => setPayee(val)} size="small"
+          renderInput={params => <TextField {...params} fullWidth placeholder="Select or type employee…" />} />
+      )
+    }
+    if (editData.reason === 'Raw Material') {
+      return (
+        <FormControl fullWidth size="small">
+          <Select value={editData.payee} onChange={e => setPayee(e.target.value)} displayEmpty>
+            <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select supplier…</em></MenuItem>
+            {supplierOptions.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
+          </Select>
+        </FormControl>
+      )
+    }
+    return (
+      <TextField fullWidth size="small" value={editData.payee} onChange={e => setPayee(e.target.value)} placeholder="Payee name" />
+    )
   }
 
   const isIncome = category === 'income'
@@ -118,14 +200,27 @@ const DailyTransactions = (props: Props) => {
             <TableBody>
               {rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, i) => (
                 <TableRow key={row._id as string} hover sx={{ '&:last-child td': { border: 0 }, bgcolor: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                  <TableCell sx={{ fontWeight: 600 }}>{(isIncome ? row.client : row.payee) as string || '—'}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>
+                    {!isIncome && row.payee ? (
+                      <Typography component="span" fontWeight={600} fontSize={14}
+                        onClick={() => setPayeeModal(row.payee as string)}
+                        sx={{ cursor: 'pointer', color: '#1976d2', '&:hover': { textDecoration: 'underline' } }}>
+                        {row.payee as string}
+                      </Typography>
+                    ) : (isIncome ? row.client : row.payee) as string || '—'}
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 700, color: isIncome ? '#2e7d32' : '#c62828' }}>{fmtCur(row.amount as number)}</TableCell>
                   <TableCell sx={{ fontSize: 13 }}>{row.reason as string || '—'}</TableCell>
                   <TableCell sx={{ color: 'text.secondary', fontSize: 13 }}>{fmtDate(row.date as string)}</TableCell>
                   <TableCell>
                     <Chip label={row.medium as string || '—'} size="small" sx={{ fontSize: 11, bgcolor: '#f5f5f5' }} />
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                    {!isIncome && (
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => openEdit(row)} sx={{ color: '#1976d2' }}><EditOutlinedIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="Delete">
                       <IconButton size="small" color="error" onClick={() => { setDeleteInfo({ ...row, category }); setDialogOpen(true) }}><DeleteOutlineIcon fontSize="small" /></IconButton>
                     </Tooltip>
@@ -164,6 +259,81 @@ const DailyTransactions = (props: Props) => {
           <Button onClick={confirmDelete} variant="contained" color="error" sx={{ textTransform: 'none' }}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: 16 }}>Edit Expense</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {editData && (
+            <>
+              <Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Reason</Typography>
+                <FormControl fullWidth size="small">
+                  <Select value={editData.reason}
+                    onChange={e => setEditData(p => p ? { ...p, reason: e.target.value, payee: '' } : p)}
+                    displayEmpty>
+                    <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
+                    {expenseReasons.map((r, i) => <MenuItem key={i} value={r}>{r}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Box>
+              {editData.reason && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Payee</Typography>
+                  {renderEditPayee()}
+                </Box>
+              )}
+              <Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Amount (₹)</Typography>
+                <TextField fullWidth size="small" type="number" value={editData.amount}
+                  onChange={e => setEditData(p => p ? { ...p, amount: e.target.value } : p)} />
+              </Box>
+              <Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Medium</Typography>
+                <ToggleButtonGroup value={editData.medium} exclusive
+                  onChange={(_, v) => v && setEditData(p => p ? { ...p, medium: v } : p)} fullWidth sx={{ gap: 1 }}>
+                  {['Cash', 'Transfer'].map(m => (
+                    <ToggleButton key={m} value={m} sx={{ flex: 1, py: 1, textTransform: 'none', fontWeight: 600, borderRadius: '8px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2 !important' } }}>
+                      {m}
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
+              {editData.medium === 'Transfer' && (
+                <Box>
+                  <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Transfer Method</Typography>
+                  <FormControl fullWidth size="small">
+                    <Select value={editData.transferMethod} onChange={e => setEditData(p => p ? { ...p, transferMethod: e.target.value } : p)} displayEmpty>
+                      <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select…</em></MenuItem>
+                      <MenuItem value="UPI">UPI</MenuItem>
+                      <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
+              <Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Comment</Typography>
+                <TextField fullWidth size="small" value={editData.comment}
+                  onChange={e => setEditData(p => p ? { ...p, comment: e.target.value } : p)} placeholder="Optional…" />
+              </Box>
+              <Box>
+                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>Date</Typography>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker value={editData.date} onChange={v => setEditData(p => p ? { ...p, date: v ?? dayjs() } : p)}
+                    renderInput={params => <TextField {...params} fullWidth size="small" />} />
+                </LocalizationProvider>
+              </Box>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 2, py: 1.5 }}>
+          <Button onClick={() => setEditDialogOpen(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditSave} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Save Changes</Button>
+        </DialogActions>
+      </Dialog>
+
+      {payeeModal && (
+        <PayeeDetailModal payee={payeeModal} expenses={expense} open={!!payeeModal} onClose={() => setPayeeModal(null)} />
+      )}
 
       <SnackbarMessage open={snackbar.open} message={snackbar.message} severity={snackbar.severity} onClose={() => setSnackbar(p => ({ ...p, open: false }))} />
     </>

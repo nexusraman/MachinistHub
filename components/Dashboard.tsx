@@ -8,6 +8,7 @@ import {
   Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Tabs, Typography,
 } from '@mui/material'
+import PayeeDetailModal from './Utils/PayeeDetailModal'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
@@ -123,6 +124,7 @@ export default function Dashboard() {
   const [allSubEntries, setAllSubEntries] = useState<{ date: string; quantity: number }[]>([])
   const [allFanEntries, setAllFanEntries] = useState<{ date: string; quantity: number }[]>([])
   const [loading, setLoading] = useState(true)
+  const [payeeModal, setPayeeModal] = useState<string | null>(null)
 
   useEffect(() => {
     Promise.all([
@@ -362,7 +364,15 @@ export default function Dashboard() {
                       <TableBody>
                         {recentExpense.map((r, i) => (
                           <TableRow key={i} hover sx={{ '&:last-child td': { border: 0 } }}>
-                            <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>{r.payee || '—'}</TableCell>
+                            <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>
+                              {r.payee ? (
+                                <Typography component="span" fontWeight={600} fontSize={13}
+                                  onClick={() => setPayeeModal(r.payee!)}
+                                  sx={{ cursor: 'pointer', color: '#1976d2', '&:hover': { textDecoration: 'underline' } }}>
+                                  {r.payee}
+                                </Typography>
+                              ) : '—'}
+                            </TableCell>
                             <TableCell sx={{ fontSize: 13, color: 'text.secondary' }}>{r.reason}</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: '#c62828', fontSize: 13 }}>{fmtCur(r.amount)}</TableCell>
                             <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{fmtDate(r.date)}</TableCell>
@@ -379,6 +389,10 @@ export default function Dashboard() {
         </Grid>
 
       </Box>
+
+      {payeeModal && (
+        <PayeeDetailModal payee={payeeModal} expenses={allExpenses} open={!!payeeModal} onClose={() => setPayeeModal(null)} />
+      )}
     </>
   )
 }

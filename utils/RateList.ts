@@ -31,7 +31,7 @@ const vickyGroupRates: Record<string, number> = {
 }
 
 const rateList: Record<string, Record<string, number>> = {
-  akash: commonRates, deepu: commonRates, seko: commonRates,
+  akash: commonRates, deepu: commonRates, 'deepu 2': commonRates, seko: commonRates,
   simar: commonRates, ranjit: commonRates, gs: commonRates,
   uppal: commonRates, anglo: commonRates, bombay: commonRates,
   manga: commonRates, bhagwati: commonRates,

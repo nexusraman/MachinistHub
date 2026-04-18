@@ -8,6 +8,7 @@ const expenseSchema = new Schema({
   medium: { type: String, enum: ['Cash', 'Transfer'] },
   transferMethod: { type: String, enum: ['UPI', 'Bank Transfer'] },
   comment: { type: String, default: '' },
+  linkedIncomeId: { type: String, default: null },
 })
 
 const Expense = mongoose.models.Expense || mongoose.model('Expense', expenseSchema)

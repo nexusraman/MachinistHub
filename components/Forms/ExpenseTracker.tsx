@@ -13,7 +13,7 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import axios from 'axios'
 import {
-  Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
+  Autocomplete, Box, Button, Collapse, Dialog, DialogActions, DialogContent, DialogTitle,
   Divider, FormControl, Grid, IconButton, MenuItem, Select,
   Switch, TextField, ToggleButton, ToggleButtonGroup, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
@@ -25,7 +25,7 @@ const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cas
 const defaultLinkedExpense = { payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '' }
 const defaultPersonal = { category: '', description: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
 const reasons = {
-  expense: ['Labour Cost', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc'],
+  expense: ['Labour Cost', 'Raw Material', 'Logistics', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc'],
   income: ['Fan Payment', 'Submersible Payment', 'Scrap Payment', 'Misc'],
 }
 const personalCategories = ['Groceries', 'Medical', 'School / Education', 'Rent', 'Utilities', 'Travel', 'Clothing', 'Entertainment', 'Misc']
@@ -45,6 +45,7 @@ const ExpenseTracker = () => {
   const [dialogCategory, setDialogCategory] = useState('expense')
   const [rows, setRows] = useState([{ ...defaultRow }])
   const [clients, setClients] = useState<{ name: string }[]>([])
+  const [employees, setEmployees] = useState<{ name: string; category: string }[]>([])
   const [snackbar, setSnackbar] = useState<Snack>({ open: false, message: '', severity: 'success' })
   const [singleEntry, setSingleEntry] = useState({ ...defaultRow })
   const [submitting, setSubmitting] = useState(false)
@@ -57,9 +58,63 @@ const ExpenseTracker = () => {
   const [personal, setPersonal] = useState({ ...defaultPersonal })
   const [personalSubmitting, setPersonalSubmitting] = useState(false)
 
+  const fetchEmployees = () =>
+    axios.get('/api/employee').then(res => setEmployees(res.data)).catch(() => {})
+
   useEffect(() => {
     axios.get('/api/client').then(res => setClients(res.data.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))))
+    fetchEmployees()
   }, [])
+
+  const saveNewEmployee = async (name: string, cat: string) => {
+    if (!name.trim()) return
+    const exists = employees.some(e => e.name.toLowerCase() === name.trim().toLowerCase())
+    if (!exists) {
+      await axios.post('/api/employee', { name: name.trim(), category: cat }).catch(() => {})
+      fetchEmployees()
+    }
+  }
+
+  const renderPayeeField = (
+    reason: string,
+    payee: string,
+    onPayeeChange: (val: string) => void,
+    size: 'small' | 'medium' = 'medium',
+  ) => {
+    const labourOptions = employees.filter(e => e.category === 'labour').map(e => e.name)
+    const supplierOptions = employees.filter(e => e.category === 'supplier').map(e => e.name)
+
+    if (reason === 'Labour Cost') {
+      return (
+        <Autocomplete
+          freeSolo
+          options={labourOptions}
+          value={payee}
+          onInputChange={(_, val) => onPayeeChange(val)}
+          size={size}
+          renderInput={params => (
+            <TextField {...params} fullWidth placeholder="Select or type employee…"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+          )}
+        />
+      )
+    }
+    if (reason === 'Raw Material') {
+      return (
+        <FormControl fullWidth size={size}>
+          <Select value={payee} onChange={e => onPayeeChange(e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+            <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select supplier…</em></MenuItem>
+            {supplierOptions.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
+          </Select>
+        </FormControl>
+      )
+    }
+    return (
+      <TextField fullWidth size={size} placeholder="Enter payee name" value={payee}
+        onChange={e => onPayeeChange(e.target.value)}
+        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+    )
+  }
 
   // Reset linked expense when switching away from income
   useEffect(() => {
@@ -70,7 +125,11 @@ const ExpenseTracker = () => {
   }, [category])
 
   const showSnack = (message: string, severity: 'success' | 'error' = 'success') => setSnackbar({ open: true, message, severity })
-  const set = (field: string, val: unknown) => setSingleEntry(p => ({ ...p, [field]: val }))
+  const set = (field: string, val: unknown) => setSingleEntry(p => ({
+    ...p,
+    [field]: val,
+    ...(field === 'reason' ? { payee: '' } : {}),
+  }))
   const setLinked = (field: string, val: unknown) => setLinkedExpense(p => ({ ...p, [field]: val }))
   const setPer = (field: string, val: unknown) => setPersonal(p => ({ ...p, [field]: val }))
 
@@ -122,24 +181,16 @@ const ExpenseTracker = () => {
     setSubmitting(true)
     const payload = { reason: singleEntry.reason, amount: singleEntry.amount, date: singleEntry.date, comment: singleEntry.comment, medium: singleEntry.medium, transferMethod: singleEntry.medium === 'Transfer' ? singleEntry.transferMethod : '', ...(category === 'income' ? { client: singleEntry.client } : { payee: singleEntry.payee }) }
     try {
-      await axios.post(`/api/${category}`, payload)
-
-      // Post linked expense if toggled on
-      if (category === 'income' && addLinkedExpense) {
-        const expPayload = {
-          payee: linkedExpense.payee,
-          reason: linkedExpense.reason,
-          amount: linkedExpense.amount,
-          date: singleEntry.date,
-          medium: linkedExpense.medium,
-          transferMethod: linkedExpense.medium === 'Transfer' ? linkedExpense.transferMethod : '',
-          comment: linkedExpense.comment,
-        }
-        await axios.post('/api/expense', expPayload)
-        showSnack('Income and linked expense submitted!')
-      } else {
-        showSnack('Entry submitted successfully!')
+      if (category === 'expense' && singleEntry.reason === 'Labour Cost') {
+        await saveNewEmployee(singleEntry.payee, 'labour')
       }
+
+      const fullPayload = category === 'income' && addLinkedExpense
+        ? { ...payload, linkedExpense: { payee: linkedExpense.payee, reason: linkedExpense.reason, amount: linkedExpense.amount, medium: linkedExpense.medium, transferMethod: linkedExpense.medium === 'Transfer' ? linkedExpense.transferMethod : '', comment: linkedExpense.comment } }
+        : payload
+
+      await axios.post(`/api/${category}`, fullPayload)
+      showSnack(addLinkedExpense ? 'Income and linked expense submitted!' : 'Entry submitted successfully!')
 
       setSingleEntry({ ...defaultRow })
       setLinkedExpense({ ...defaultLinkedExpense })
@@ -273,32 +324,50 @@ const ExpenseTracker = () => {
 
           {/* ── Business Expense / Income Form ── */}
           {!isPersonal && <>
-          {/* Client / Payee */}
-          <Box mb={2.5}>
-            <Label>{isIncome ? 'Client' : 'Payee'}</Label>
-            {isIncome ? (
+
+          {/* For income: Client first. For expense: Reason first */}
+          {isIncome ? (
+            <Box mb={2.5}>
+              <Label>Client</Label>
               <FormControl fullWidth>
                 <Select value={singleEntry.client} onChange={e => set('client', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
                   <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select client…</em></MenuItem>
                   {clients.map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
                 </Select>
               </FormControl>
-            ) : (
-              <TextField fullWidth placeholder="Enter payee name" value={singleEntry.payee} onChange={e => set('payee', e.target.value)}
-                inputProps={{ style: { fontSize: 16 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            )}
-          </Box>
+            </Box>
+          ) : (
+            <Box mb={2.5}>
+              <Label>Reason</Label>
+              <FormControl fullWidth>
+                <Select value={singleEntry.reason} onChange={e => set('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                  <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
+                  {reasons.expense.map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25, fontSize: 15 }}>{r}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
 
-          {/* Reason */}
-          <Box mb={2.5}>
-            <Label>Reason</Label>
-            <FormControl fullWidth>
-              <Select value={singleEntry.reason} onChange={e => set('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
-                <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
-                {reasons[category as 'income' | 'expense'].map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25, fontSize: 15 }}>{r}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Box>
+          {/* Payee (expense) — shown after reason is selected */}
+          {!isIncome && singleEntry.reason && (
+            <Box mb={2.5}>
+              <Label>Payee</Label>
+              {renderPayeeField(singleEntry.reason, singleEntry.payee, val => set('payee', val))}
+            </Box>
+          )}
+
+          {/* Reason (income only — comes after client) */}
+          {isIncome && (
+            <Box mb={2.5}>
+              <Label>Reason</Label>
+              <FormControl fullWidth>
+                <Select value={singleEntry.reason} onChange={e => set('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                  <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
+                  {reasons.income.map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25, fontSize: 15 }}>{r}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
 
           {/* Amount */}
           <Box mb={2.5}>
@@ -369,27 +438,27 @@ const ExpenseTracker = () => {
                   </Typography>
 
                   <Box mb={2}>
-                    <Label>Payee</Label>
-                    <TextField fullWidth placeholder="Employee / supplier name" value={linkedExpense.payee} onChange={e => setLinked('payee', e.target.value)}
-                      size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                    <Label>Reason</Label>
+                    <FormControl fullWidth size="small">
+                      <Select value={linkedExpense.reason} onChange={e => setLinked('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                        <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
+                        {reasons.expense.map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25 }}>{r}</MenuItem>)}
+                      </Select>
+                    </FormControl>
                   </Box>
 
-                  <Grid container spacing={2} mb={2}>
-                    <Grid item xs={12} sm={6}>
-                      <Label>Reason</Label>
-                      <FormControl fullWidth size="small">
-                        <Select value={linkedExpense.reason} onChange={e => setLinked('reason', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
-                          <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select reason…</em></MenuItem>
-                          {reasons.expense.map((r, i) => <MenuItem key={i} value={r} sx={{ py: 1.25 }}>{r}</MenuItem>)}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <Label>Amount (₹)</Label>
-                      <TextField fullWidth type="number" placeholder="0" value={linkedExpense.amount} onChange={e => setLinked('amount', e.target.value)}
-                        size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-                    </Grid>
-                  </Grid>
+                  {linkedExpense.reason && (
+                    <Box mb={2}>
+                      <Label>Payee</Label>
+                      {renderPayeeField(linkedExpense.reason, linkedExpense.payee, val => setLinked('payee', val), 'small')}
+                    </Box>
+                  )}
+
+                  <Box mb={2}>
+                    <Label>Amount (₹)</Label>
+                    <TextField fullWidth type="number" placeholder="0" value={linkedExpense.amount} onChange={e => setLinked('amount', e.target.value)}
+                      size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  </Box>
 
                   <Grid container spacing={2} mb={2}>
                     <Grid item xs={linkedExpense.medium === 'Transfer' ? 6 : 12}>

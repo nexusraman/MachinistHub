@@ -9,6 +9,7 @@ const incomeSchema = new Schema({
   transferMethod: { type: String, enum: ['UPI', 'Bank Transfer'] },
   comment: { type: String, default: '' },
   date: { type: Date, default: Date.now },
+  linkedExpenseId: { type: String, default: null },
 })
 
 const Income = mongoose.models.Income || mongoose.model('Income', incomeSchema)
