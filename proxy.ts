@@ -4,13 +4,17 @@ export function proxy(req: NextRequest) {
   const token = req.cookies.get('authToken')?.value
   const { pathname } = req.nextUrl
 
+  if (pathname === '/' && !token) {
+    return NextResponse.next()
+  }
+
   if (pathname === '/login') {
     if (token) return NextResponse.redirect(new URL('/', req.url))
     return NextResponse.next()
   }
 
   if (!token) {
-    return NextResponse.redirect(new URL('/login', req.url))
+    return NextResponse.redirect(new URL('/', req.url))
   }
 
   return NextResponse.next()
