@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import {
-  AppBar, Box, Button, Drawer, IconButton, List, ListItem,
+  AppBar, Box, Button, Drawer, IconButton, List, ListItemButton,
   ListItemIcon, ListItemText, Toolbar, Typography, useMediaQuery, useTheme,
 } from '@mui/material'
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing'
@@ -125,7 +125,7 @@ const Navbar = () => {
 
         <List sx={{ px: 1 }}>
           {NAV_ITEMS.map(item => (
-            <ListItem
+            <ListItemButton
               key={item.path}
               component={NextLink}
               href={item.path}
@@ -143,7 +143,7 @@ const Navbar = () => {
                 primary={item.text}
                 primaryTypographyProps={{ fontWeight: isActive(item.path) ? 700 : 400 }}
               />
-            </ListItem>
+            </ListItemButton>
           ))}
         </List>
 

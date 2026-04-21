@@ -54,15 +54,7 @@ const stats = [
 
 export default function LandingPage() {
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        bgcolor: '#060b18 !important',
-        color: '#e2e8f0',
-        fontFamily: "'Inter', sans-serif",
-        '& *': { boxSizing: 'border-box' },
-      }}
-    >
+    <div style={{ minHeight: '100vh', backgroundColor: '#060b18', color: '#e2e8f0' }}>
       {/* ── Navbar ── */}
       <Box
         component="nav"
@@ -479,6 +471,6 @@ export default function LandingPage() {
           © {new Date().getFullYear()} MachinistHub. All rights reserved.
         </Typography>
       </Box>
-    </Box>
+    </div>
   )
 }

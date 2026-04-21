@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Box, Button, Drawer, IconButton, List, ListItem, ListItemText } from '@mui/material'
+import { Box, Button, Drawer, IconButton, List, ListItemButton, ListItemText } from '@mui/material'
 import MenuIcon from '@mui/icons-material/Menu'
 import NextLink from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -23,9 +23,9 @@ const DrawerComponent = () => {
       <Drawer open={open} onClose={() => setOpen(false)}>
         <List sx={{ width: 220 }}>
           {MenuItems.MainMenu.map((item, i) => (
-            <ListItem key={i} component={NextLink} href={item.path} onClick={() => setOpen(false)}>
+            <ListItemButton key={i} component={NextLink} href={item.path} onClick={() => setOpen(false)}>
               <ListItemText primary={item.text} />
-            </ListItem>
+            </ListItemButton>
           ))}
           <Box mx={2} mt={2}>
             <Button size="small" color="secondary" variant="contained" onClick={logoutHandler} fullWidth>
