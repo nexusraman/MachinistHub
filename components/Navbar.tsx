@@ -12,7 +12,6 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import AssessmentIcon from '@mui/icons-material/Assessment'
 import MenuIcon from '@mui/icons-material/Menu'
 import LogoutIcon from '@mui/icons-material/Logout'
-import NextLink from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import axios from 'axios'
 
@@ -75,8 +74,7 @@ const Navbar = () => {
               {NAV_ITEMS.map(item => (
                 <Button
                   key={item.path}
-                  component={NextLink}
-                  href={item.path}
+                  onClick={() => router.push(item.path)}
                   startIcon={item.icon}
                   sx={{
                     color: '#fff',
@@ -127,9 +125,7 @@ const Navbar = () => {
           {NAV_ITEMS.map(item => (
             <ListItemButton
               key={item.path}
-              component={NextLink}
-              href={item.path}
-              onClick={() => setDrawerOpen(false)}
+              onClick={() => { router.push(item.path); setDrawerOpen(false) }}
               sx={{
                 borderRadius: 2,
                 mb: 0.5,

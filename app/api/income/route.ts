@@ -17,7 +17,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { client: clientName, reason, amount, date, medium, transferMethod, comment, linkedExpense } = await req.json()
+  const { client: clientName, isOneTime, reason, amount, date, medium, transferMethod, comment, linkedExpense } = await req.json()
   const paymentId = nanoid()
 
   try {
@@ -43,26 +43,29 @@ export async function POST(req: NextRequest) {
     }
 
     const newIncome = new Income({
-      paymentId, client: clientName, reason, amount, date, medium,
+      paymentId, client: clientName || 'One-Time', reason, amount, date, medium,
       transferMethod: medium === 'Transfer' ? transferMethod : undefined,
       comment,
       linkedExpenseId,
     })
 
-    const client = await Client.findOne({ name: clientName })
-    if (!client) return err('Client not found', 404)
+    // One-time income: skip client balance update
+    if (!isOneTime) {
+      const client = await Client.findOne({ name: clientName })
+      if (!client) return err('Client not found', 404)
 
-    if (client.calculatedBalance === 0 || client.calculatedBalance === undefined) {
-      client.calculatedBalance = client.balance
+      if (client.calculatedBalance === 0 || client.calculatedBalance === undefined) {
+        client.calculatedBalance = client.balance
+      }
+      client.calculatedBalance -= amount
+      client.payments.push({
+        date, amount, paymentId, medium,
+        transferMethod: medium === 'Transfer' ? transferMethod : undefined,
+        comment: comment || '',
+      })
+      await client.save({ validateModifiedOnly: true })
     }
-    client.calculatedBalance -= amount
-    client.payments.push({
-      date, amount, paymentId, medium,
-      transferMethod: medium === 'Transfer' ? transferMethod : undefined,
-      comment: comment || '',
-    })
 
-    await client.save({ validateModifiedOnly: true })
     await newIncome.save()
     return ok(newIncome, 201)
   } catch (e: unknown) {

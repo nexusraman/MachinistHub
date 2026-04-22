@@ -21,7 +21,7 @@ import dayjs from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
 
 type Snack = { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }
-const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
+const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs(), isOneTime: false }
 const defaultLinkedExpense = { payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '' }
 const defaultPersonal = { category: '', description: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
 const reasons = {
@@ -51,6 +51,7 @@ const ExpenseTracker = () => {
   const [submitting, setSubmitting] = useState(false)
 
   // Linked expense when adding income
+  const [incomeType, setIncomeType] = useState<'client' | 'onetime'>('client')
   const [addLinkedExpense, setAddLinkedExpense] = useState(false)
   const [linkedExpense, setLinkedExpense] = useState({ ...defaultLinkedExpense })
 
@@ -116,11 +117,12 @@ const ExpenseTracker = () => {
     )
   }
 
-  // Reset linked expense when switching away from income
+  // Reset income-specific state when switching away from income
   useEffect(() => {
     if (category !== 'income') {
       setAddLinkedExpense(false)
       setLinkedExpense({ ...defaultLinkedExpense })
+      setIncomeType('client')
     }
   }, [category])
 
@@ -170,7 +172,7 @@ const ExpenseTracker = () => {
     const s = singleEntry
     if (!s.reason || !s.amount || !s.date || !s.medium) return false
     if (s.medium === 'Transfer' && !s.transferMethod) return false
-    if (category === 'income' && !s.client) return false
+    if (category === 'income' && incomeType === 'client' && !s.client) return false
     if (category === 'expense' && !s.payee) return false
     if (!isLinkedExpenseValid()) return false
     return true
@@ -179,7 +181,8 @@ const ExpenseTracker = () => {
   const handleSubmit = async () => {
     if (!isValid()) { showSnack('Please fill all required fields.', 'error'); return }
     setSubmitting(true)
-    const payload = { reason: singleEntry.reason, amount: singleEntry.amount, date: singleEntry.date, comment: singleEntry.comment, medium: singleEntry.medium, transferMethod: singleEntry.medium === 'Transfer' ? singleEntry.transferMethod : '', ...(category === 'income' ? { client: singleEntry.client } : { payee: singleEntry.payee }) }
+    const isOneTime = category === 'income' && incomeType === 'onetime'
+    const payload = { reason: singleEntry.reason, amount: singleEntry.amount, date: singleEntry.date, comment: singleEntry.comment, medium: singleEntry.medium, transferMethod: singleEntry.medium === 'Transfer' ? singleEntry.transferMethod : '', ...(category === 'income' ? { client: singleEntry.client || 'One-Time', isOneTime } : { payee: singleEntry.payee }) }
     try {
       if (category === 'expense' && singleEntry.reason === 'Labour Cost') {
         await saveNewEmployee(singleEntry.payee, 'labour')
@@ -325,16 +328,31 @@ const ExpenseTracker = () => {
           {/* ── Business Expense / Income Form ── */}
           {!isPersonal && <>
 
-          {/* For income: Client first. For expense: Reason first */}
+          {/* For income: Client/One-time toggle first. For expense: Reason first */}
           {isIncome ? (
             <Box mb={2.5}>
-              <Label>Client</Label>
-              <FormControl fullWidth>
-                <Select value={singleEntry.client} onChange={e => set('client', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
-                  <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select client…</em></MenuItem>
-                  {clients.map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
-                </Select>
-              </FormControl>
+              <Label>Income From</Label>
+              <ToggleButtonGroup value={incomeType} exclusive onChange={(_, v) => { if (v) { setIncomeType(v); set('client', '') } }} fullWidth sx={{ gap: 1, mb: 1.5 }}>
+                <ToggleButton value="client" sx={{ flex: 1, py: 1.25, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '8px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e8f5e9', color: '#2e7d32', borderColor: '#2e7d32 !important' } }}>
+                  Existing Client
+                </ToggleButton>
+                <ToggleButton value="onetime" sx={{ flex: 1, py: 1.25, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '8px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e3f2fd', color: '#1565c0', borderColor: '#1565c0 !important' } }}>
+                  One-Time
+                </ToggleButton>
+              </ToggleButtonGroup>
+              {incomeType === 'client' ? (
+                <FormControl fullWidth>
+                  <Select value={singleEntry.client} onChange={e => set('client', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                    <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select client…</em></MenuItem>
+                    {clients.map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              ) : (
+                <TextField fullWidth placeholder="Name or description (optional)" value={singleEntry.client}
+                  onChange={e => set('client', e.target.value)}
+                  inputProps={{ style: { fontSize: 15 } }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+              )}
             </Box>
           ) : (
             <Box mb={2.5}>

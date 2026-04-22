@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongodb'
 import Employee from '@/models/employee'
 import { ok, err } from '@/lib/apiHelper'
 
-const SEED_LABOUR = ['Mahesh', 'Deepak', 'Deepak 2', 'Suraj', 'RJ', 'Uncle', 'Uncle 2', 'Saroj', 'Pankaj']
+const SEED_LABOUR = ['Mahesh', 'Deepak', 'Deepak 2', 'Suraj', 'RJ', 'Uncle', 'Uncle 2', 'Saroj', 'Pankaj', 'Sagar']
 const SEED_SUPPLIERS = ['Manik', 'Bhushan']
 
 export async function GET() {
