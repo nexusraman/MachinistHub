@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import type { SortOrder } from 'mongoose'
 import jwt from 'jsonwebtoken'
 import { connectDB } from '@/lib/mongodb'
 import Task from '@/models/Task'
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     if (category && category !== 'all') query.category = category
     if (status && status !== 'all') query.status = status
 
-    const sortMap: Record<string, Record<string, number>> = {
+    const sortMap: Record<string, Record<string, SortOrder>> = {
       deadline: { deadline: 1 },
       priority: { priority: 1 },
       created: { createdAt: -1 },

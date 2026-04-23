@@ -43,9 +43,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } else if (body._subtaskAdd) {
         task.subtasks.push({ title: body._subtaskAdd.title, order: task.subtasks.length })
       } else if (body._subtaskDelete) {
-        task.subtasks = task.subtasks.filter(
-          (s: { _id: { toString(): string } }) => s._id.toString() !== body._subtaskDelete.subtaskId
-        )
+        const idx = task.subtasks.findIndex((s) => s._id.toString() === body._subtaskDelete.subtaskId)
+        if (idx !== -1) task.subtasks.splice(idx, 1)
       }
 
       await task.save()
