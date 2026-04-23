@@ -10,6 +10,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard'
 import PeopleIcon from '@mui/icons-material/People'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import AssessmentIcon from '@mui/icons-material/Assessment'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import MenuIcon from '@mui/icons-material/Menu'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { usePathname, useRouter } from 'next/navigation'
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { text: 'Clients', path: '/clients', icon: <PeopleIcon fontSize="small" /> },
   { text: 'Input Form', path: '/create', icon: <EditNoteIcon fontSize="small" /> },
   { text: 'Reports', path: '/reports', icon: <AssessmentIcon fontSize="small" /> },
+  { text: 'Productivity', path: '/productivity', icon: <TaskAltIcon fontSize="small" /> },
 ]
 
 const Navbar = () => {

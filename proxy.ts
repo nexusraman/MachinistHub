@@ -11,7 +11,7 @@ export function proxy(req: NextRequest) {
   }
 
   // Protect app routes — redirect unauthenticated users to login
-  const protectedRoutes = ['/clients', '/create', '/reports']
+  const protectedRoutes = ['/clients', '/create', '/reports', '/productivity']
   if (protectedRoutes.some(r => pathname === r || pathname.startsWith(r + '/')) && !token) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
