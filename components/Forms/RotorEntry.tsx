@@ -35,7 +35,7 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 )
 
 const RotorEntry = () => {
-  const [clients, setClients] = useState<{ name: string; category: string }[]>([])
+  const [clients, setClients] = useState<{ name: string; category: string; active?: boolean }[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [entryType, setEntryType] = useState<'received' | 'dispatched'>('received')
 
@@ -106,7 +106,7 @@ const RotorEntry = () => {
     } finally { setSubmitting(false) }
   }
 
-  const fanClients = clients.filter(c => c.category === 'fan')
+  const fanClients = clients.filter(c => c.category === 'fan' && c.active !== false)
 
   return (
     <>

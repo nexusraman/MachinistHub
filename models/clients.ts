@@ -6,6 +6,7 @@ const clientSchema = new Schema({
   balance: Number,
   calculatedBalance: Number,
   category: String,
+  active: { type: Boolean, default: true },
   entries: [
     {
       subId: { type: String, required: true },

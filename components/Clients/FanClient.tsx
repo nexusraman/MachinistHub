@@ -8,7 +8,6 @@ import {
 import ElectricBoltIcon from '@mui/icons-material/ElectricBolt'
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'
 import InventoryIcon from '@mui/icons-material/Inventory'
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
 
 interface Client {
@@ -183,13 +182,6 @@ const FanClient = ({ client }: { client: Client }) => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              {payments.length > 0 && (
-                <Box sx={{ px: 2.5, py: 1.5, borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
-                  <Typography variant="body2" fontWeight={600} color="text.secondary">
-                    Total: <span style={{ color: '#2e7d32' }}>{fmtCur(payments.reduce((s, p) => s + (p.amount || 0), 0))}</span>
-                  </Typography>
-                </Box>
-              )}
             </Paper>
           </Grid>
 
@@ -232,16 +224,6 @@ const FanClient = ({ client }: { client: Client }) => {
           </Grid>
         </Grid>
 
-        {/* Balance summary */}
-        <Paper elevation={0} sx={{ mt: 3, p: 2.5, border: `1px solid ${isPaid ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: 3, bgcolor: isPaid ? '#f1f8e9' : '#fff8f8', display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AccountBalanceWalletIcon sx={{ color: isPaid ? '#2e7d32' : '#c62828', fontSize: 28 }} />
-          <Box>
-            <Typography variant="body2" color="text.secondary">Outstanding Balance</Typography>
-            <Typography variant="h6" fontWeight={700} sx={{ color: isPaid ? '#2e7d32' : '#c62828' }}>
-              {fmtCur(balance)} {isPaid ? '— Paid up ✓' : '— Due'}
-            </Typography>
-          </Box>
-        </Paper>
       </Box>
     </Box>
   )

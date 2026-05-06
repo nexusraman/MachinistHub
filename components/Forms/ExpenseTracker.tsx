@@ -44,7 +44,7 @@ const ExpenseTracker = () => {
   const [category, setCategory] = useState('expense')
   const [dialogCategory, setDialogCategory] = useState('expense')
   const [rows, setRows] = useState([{ ...defaultRow }])
-  const [clients, setClients] = useState<{ name: string }[]>([])
+  const [clients, setClients] = useState<{ name: string; active?: boolean }[]>([])
   const [employees, setEmployees] = useState<{ name: string; category: string }[]>([])
   const [snackbar, setSnackbar] = useState<Snack>({ open: false, message: '', severity: 'success' })
   const [singleEntry, setSingleEntry] = useState({ ...defaultRow })
@@ -342,9 +342,13 @@ const ExpenseTracker = () => {
               </ToggleButtonGroup>
               {incomeType === 'client' ? (
                 <FormControl fullWidth>
-                  <Select value={singleEntry.client} onChange={e => set('client', e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                  <Select value={singleEntry.client} onChange={e => {
+                    const name = e.target.value
+                    const autoReason = name.toLowerCase().includes('fan') ? 'Fan Payment' : 'Submersible Payment'
+                    setSingleEntry(p => ({ ...p, client: name, reason: autoReason }))
+                  }} displayEmpty sx={{ borderRadius: 2 }}>
                     <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select client…</em></MenuItem>
-                    {clients.map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
+                    {clients.filter(c => c.active !== false).map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
                   </Select>
                 </FormControl>
               ) : (
@@ -446,7 +450,16 @@ const ExpenseTracker = () => {
                   <Typography fontWeight={700} fontSize={14} color="#e65100">Also record an expense</Typography>
                   <Typography variant="caption" color="text.secondary">(e.g. paid to employee / supplier)</Typography>
                 </Box>
-                <Switch checked={addLinkedExpense} onChange={e => setAddLinkedExpense(e.target.checked)} color="warning" />
+                <Switch checked={addLinkedExpense} onChange={e => {
+                  const on = e.target.checked
+                  setAddLinkedExpense(on)
+                  if (on) setLinkedExpense(p => ({
+                    ...p,
+                    amount: singleEntry.amount,
+                    medium: singleEntry.medium,
+                    transferMethod: singleEntry.transferMethod,
+                  }))
+                }} color="warning" />
               </Box>
 
               <Collapse in={addLinkedExpense}>
@@ -569,7 +582,7 @@ const ExpenseTracker = () => {
                     <FormControl fullWidth size="small">
                       <Select value={row.client} onChange={e => handleRowChange(i, 'client', e.target.value)} displayEmpty sx={{ borderRadius: 1.5 }}>
                         <MenuItem value="" disabled><em style={{ color: '#aaa' }}>-</em></MenuItem>
-                        {clients.map((c, j) => <MenuItem key={j} value={c.name}>{c.name}</MenuItem>)}
+                        {clients.filter(c => c.active !== false).map((c, j) => <MenuItem key={j} value={c.name}>{c.name}</MenuItem>)}
                       </Select>
                     </FormControl>
                   </Grid>

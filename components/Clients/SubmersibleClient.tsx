@@ -7,7 +7,6 @@ import {
   TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography,
 } from '@mui/material'
 import { Download, MonetizationOn, ShoppingCart, WaterDrop } from '@mui/icons-material'
-import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import rateList from '@/utils/RateList'
 import { jsPDF } from 'jspdf'
 
@@ -236,11 +235,8 @@ const SubmersibleClient = ({ client }: { client: Client }) => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              {filteredEntries.length > 0 && (
-                <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
-                  <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    Total: <span style={{ color: '#1976d2' }}>{fmtCur(filteredEntries.reduce((s, e) => s + e.amount, 0))}</span>
-                  </Typography>
+              {filteredEntries.length > rowsPerPage && (
+                <Box sx={{ px: 2.5, py: 1.5, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
                   <Pagination count={Math.ceil(filteredEntries.length / rowsPerPage)} page={entryPage} onChange={(_, p) => setEntryPage(p)} size="small" />
                 </Box>
               )}
@@ -286,11 +282,8 @@ const SubmersibleClient = ({ client }: { client: Client }) => {
                   </TableBody>
                 </Table>
               </TableContainer>
-              {filteredPayments.length > 0 && (
-                <Box sx={{ px: 2.5, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
-                  <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                    Total: <span style={{ color: '#2e7d32' }}>{fmtCur(filteredPayments.reduce((s, p) => s + (p.amount || 0), 0))}</span>
-                  </Typography>
+              {filteredPayments.length > rowsPerPage && (
+                <Box sx={{ px: 2.5, py: 1.5, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
                   <Pagination count={Math.ceil(filteredPayments.length / rowsPerPage)} page={paymentPage} onChange={(_, p) => setPaymentPage(p)} size="small" />
                 </Box>
               )}
@@ -298,16 +291,6 @@ const SubmersibleClient = ({ client }: { client: Client }) => {
           </Grid>
         </Grid>
 
-        {/* Balance summary */}
-        <Paper elevation={0} sx={{ mt: 3, p: 2.5, border: `1px solid ${isPaid ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: 3, bgcolor: isPaid ? '#f1f8e9' : '#fff8f8', display: 'flex', alignItems: 'center', gap: 2 }}>
-          <AccountBalanceWalletIcon sx={{ color: isPaid ? '#2e7d32' : '#c62828', fontSize: 28 }} />
-          <Box>
-            <Typography variant="body2" color="text.secondary">Outstanding Balance</Typography>
-            <Typography variant="h6" fontWeight={700} sx={{ color: isPaid ? '#2e7d32' : '#c62828' }}>
-              {fmtCur(balance)} {isPaid ? '— Paid up ✓' : '— Due'}
-            </Typography>
-          </Box>
-        </Paper>
       </Box>
     </Box>
   )

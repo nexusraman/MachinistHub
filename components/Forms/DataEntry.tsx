@@ -41,8 +41,8 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 )
 
 // ── Submersible sub-form ───────────────────────────────────────────────────
-const SubmersibleForm = ({ clients }: { clients: { name: string; category: string }[] }) => {
-  const subClients = clients.filter(c => c.category === 'submersible')
+const SubmersibleForm = ({ clients }: { clients: { name: string; category: string; active?: boolean }[] }) => {
+  const subClients = clients.filter(c => c.category === 'submersible' && c.active !== false)
   const defaultRow = { client: '', quantity: '', rotorSize: '', date: dayjs() }
   const [entry, setEntry] = useState({ client: '', quantity: '', rotorSize: '', date: dayjs() })
   const [rows, setRows] = useState([{ ...defaultRow }])
@@ -184,8 +184,8 @@ const SubmersibleForm = ({ clients }: { clients: { name: string; category: strin
 }
 
 // ── Fan Rotors sub-form ────────────────────────────────────────────────────
-const FanRotorsForm = ({ clients }: { clients: { name: string; category: string }[] }) => {
-  const fanClients = clients.filter(c => c.category === 'fan')
+const FanRotorsForm = ({ clients }: { clients: { name: string; category: string; active?: boolean }[] }) => {
+  const fanClients = clients.filter(c => c.category === 'fan' && c.active !== false)
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [entryType, setEntryType] = useState<'received' | 'dispatched'>('received')
   const [client, setClient] = useState('')
@@ -324,14 +324,14 @@ const FanRotorsForm = ({ clients }: { clients: { name: string; category: string 
 }
 
 // ── Fan wrapper ────────────────────────────────────────────────────────────
-const FanForm = ({ clients }: { clients: { name: string; category: string }[] }) => (
+const FanForm = ({ clients }: { clients: { name: string; category: string; active?: boolean }[] }) => (
   <FanRotorsForm clients={clients} />
 )
 
 // ── Main DataEntry ─────────────────────────────────────────────────────────
 const DataEntry = () => {
   const [outerTab, setOuterTab] = useState(0)
-  const [clients, setClients] = useState<{ name: string; category: string }[]>([])
+  const [clients, setClients] = useState<{ name: string; category: string; active?: boolean }[]>([])
 
   useEffect(() => {
     axios.get('/api/client').then(res => setClients(res.data.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))).catch(() => {})
