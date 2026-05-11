@@ -187,6 +187,9 @@ const ExpenseTracker = () => {
       if (category === 'expense' && singleEntry.reason === 'Labour Cost') {
         await saveNewEmployee(singleEntry.payee, 'labour')
       }
+      if (category === 'income' && incomeType === 'onetime' && singleEntry.reason === 'Scrap Payment' && singleEntry.client) {
+        await saveNewEmployee(singleEntry.client, 'scrap')
+      }
 
       const fullPayload = category === 'income' && addLinkedExpense
         ? { ...payload, linkedExpense: { payee: linkedExpense.payee, reason: linkedExpense.reason, amount: linkedExpense.amount, medium: linkedExpense.medium, transferMethod: linkedExpense.medium === 'Transfer' ? linkedExpense.transferMethod : '', comment: linkedExpense.comment } }
@@ -220,6 +223,8 @@ const ExpenseTracker = () => {
       setOpen(false)
     } catch (err: unknown) { showSnack((err as Error).message || 'Something went wrong.', 'error') }
   }
+
+  const scrapBuyerOptions = employees.filter(e => e.category === 'scrap').map(e => e.name)
 
   const isIncome = category === 'income'
   const isPersonal = category === 'personal'
@@ -351,6 +356,17 @@ const ExpenseTracker = () => {
                     {clients.filter(c => c.active !== false).map((c, i) => <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>)}
                   </Select>
                 </FormControl>
+              ) : singleEntry.reason === 'Scrap Payment' ? (
+                <Autocomplete
+                  freeSolo
+                  options={scrapBuyerOptions}
+                  value={singleEntry.client}
+                  onInputChange={(_, val) => set('client', val)}
+                  renderInput={params => (
+                    <TextField {...params} fullWidth placeholder="Select or type buyer name…"
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  )}
+                />
               ) : (
                 <TextField fullWidth placeholder="Name or description (optional)" value={singleEntry.client}
                   onChange={e => set('client', e.target.value)}

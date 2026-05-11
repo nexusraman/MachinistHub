@@ -6,6 +6,7 @@ const fanRotorSchema = new Schema({
   quantity: Number,
   type: { type: String, enum: ['received', 'dispatched'], default: 'received' },
   shaftSize: { type: String, default: '' },
+  rate: { type: Number, default: 0 },
   date: { type: Date, default: Date.now },
 })
 

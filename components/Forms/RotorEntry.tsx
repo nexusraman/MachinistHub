@@ -20,12 +20,12 @@ import dayjs, { Dayjs } from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
 
 const rotorSizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
-const shaftSizes = ['Small', 'Medium', 'Large', '6"', '7"', '8"', '10"', '12"']
 
 type InventoryItem = { rotorSize: string; received: number; dispatched: number; available: number }
-type ItemRow = { rotorSize: string; quantity: string; shaftSize: string }
+type ItemRow = { rotorSize: string; quantity: string; shaftSize: string; rate: string }
+type FanRate = { shaftSize: string; rate: number }
 
-const defaultItem = (): ItemRow => ({ rotorSize: '', quantity: '', shaftSize: '' })
+const defaultItem = (): ItemRow => ({ rotorSize: '', quantity: '', shaftSize: '', rate: '' })
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <Typography variant="caption" fontWeight={700} color="text.secondary"
@@ -35,12 +35,17 @@ const Label = ({ children }: { children: React.ReactNode }) => (
 )
 
 const RotorEntry = () => {
-  const [clients, setClients] = useState<{ name: string; category: string; active?: boolean }[]>([])
+  const [clients, setClients] = useState<{ _id: string; name: string; category: string; active?: boolean }[]>([])
   const [inventory, setInventory] = useState<InventoryItem[]>([])
   const [entryType, setEntryType] = useState<'received' | 'dispatched'>('received')
+  const [fanRates, setFanRates] = useState<FanRate[]>([])
+  const [shaftSizes, setShaftSizes] = useState<string[]>([])
+  const [newShaftInput, setNewShaftInput] = useState('')
+  const [addingShaft, setAddingShaft] = useState(false)
 
   // Shared fields
   const [client, setClient] = useState('')
+  const [clientId, setClientId] = useState('')
   const [date, setDate] = useState<Dayjs>(dayjs())
 
   // Per-item rows
@@ -56,7 +61,27 @@ const RotorEntry = () => {
     axios.get('/api/client').then(res =>
       setClients(res.data.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name))))
     fetchInventory()
+    axios.get('/api/shaftSizes').then(res => setShaftSizes(res.data)).catch(() => {})
   }, [])
+
+  const addShaftSize = async (idx: number) => {
+    const name = newShaftInput.trim()
+    if (!name) return
+    setAddingShaft(true)
+    try {
+      await axios.post('/api/shaftSizes', { name })
+      setShaftSizes(prev => prev.includes(name) ? prev : [...prev, name])
+      handleShaftChange(idx, name)
+      setNewShaftInput('')
+    } finally {
+      setAddingShaft(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!clientId) { setFanRates([]); return }
+    axios.get(`/api/client/${clientId}/fanRates`).then(res => setFanRates(res.data)).catch(() => setFanRates([]))
+  }, [clientId])
 
   const showSnack = (msg: string, severity: 'success' | 'error' = 'success') =>
     setSnackbar({ open: true, message: msg, severity })
@@ -68,6 +93,20 @@ const RotorEntry = () => {
   const addItem = () => setItems(prev => [...prev, defaultItem()])
   const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx))
 
+  const handleClientChange = (name: string) => {
+    setClient(name)
+    const found = clients.find(c => c.name === name)
+    setClientId(found?._id || '')
+    setItems([defaultItem()])
+  }
+
+  const handleShaftChange = (idx: number, shaftSize: string) => {
+    const rateEntry = fanRates.find(r => r.shaftSize === shaftSize)
+    setItems(prev => prev.map((row, i) =>
+      i === idx ? { ...row, shaftSize, rate: rateEntry ? String(rateEntry.rate) : row.rate } : row
+    ))
+  }
+
   const isDispatched = entryType === 'dispatched'
   const accentColor = isDispatched ? '#6a1b9a' : '#2e7d32'
 
@@ -76,7 +115,7 @@ const RotorEntry = () => {
     if (items.length === 0) return false
     return items.every(r => {
       if (!r.rotorSize || !r.quantity) return false
-      if (isDispatched && !r.shaftSize) return false
+      if (isDispatched && (!r.shaftSize || !r.rate)) return false
       return true
     })
   }
@@ -92,6 +131,7 @@ const RotorEntry = () => {
           quantity: Number(item.quantity),
           type: entryType,
           shaftSize: isDispatched ? item.shaftSize : '',
+          rate: isDispatched ? Number(item.rate) : 0,
           date: date.toDate(),
         })
       }
@@ -156,7 +196,7 @@ const RotorEntry = () => {
           <Box mb={3}>
             <Label>Entry Type</Label>
             <ToggleButtonGroup value={entryType} exclusive
-              onChange={(_, v) => { if (v) { setEntryType(v); setItems([defaultItem()]) } }}
+              onChange={(_, v) => { if (v) { setEntryType(v); setItems([defaultItem()]); setFanRates([]) } }}
               fullWidth sx={{ gap: 1 }}>
               <ToggleButton value="received" sx={{ flex: 1, py: 1.5, textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: '10px !important', border: '1px solid #e2e8f0 !important', '&.Mui-selected': { bgcolor: '#e8f5e9', color: '#2e7d32', borderColor: '#2e7d32 !important' } }}>
                 <CallReceivedIcon sx={{ mr: 0.75, fontSize: 18 }} /> Received from Client
@@ -172,7 +212,7 @@ const RotorEntry = () => {
             <Grid item xs={12} sm={7}>
               <Label>Client</Label>
               <FormControl fullWidth>
-                <Select value={client} onChange={e => setClient(e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
+                <Select value={client} onChange={e => handleClientChange(e.target.value)} displayEmpty sx={{ borderRadius: 2 }}>
                   <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Select fan client…</em></MenuItem>
                   {fanClients.map((c, i) => (
                     <MenuItem key={i} value={c.name} sx={{ py: 1.25, fontSize: 15 }}>{c.name}</MenuItem>
@@ -245,11 +285,39 @@ const RotorEntry = () => {
                   <Box flex={2}>
                     {idx === 0 && <Label>Shaft Size</Label>}
                     <FormControl fullWidth size="small">
-                      <Select value={item.shaftSize} onChange={e => setItem(idx, 'shaftSize', e.target.value)} displayEmpty sx={{ borderRadius: 1.5 }}>
+                      <Select value={item.shaftSize} onChange={e => handleShaftChange(idx, e.target.value)} displayEmpty sx={{ borderRadius: 1.5 }}>
                         <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Shaft…</em></MenuItem>
                         {shaftSizes.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
+                        <MenuItem disableRipple value="__new__" sx={{ p: 0 }} onClickCapture={e => e.stopPropagation()}>
+                          <Box display="flex" gap={0.5} px={1} py={0.5} width="100%" onClick={e => e.stopPropagation()}>
+                            <TextField
+                              size="small" placeholder="New size…" value={newShaftInput}
+                              onChange={e => setNewShaftInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addShaftSize(idx) } }}
+                              onClick={e => e.stopPropagation()}
+                              inputProps={{ style: { fontSize: 13 } }}
+                              sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }} />
+                            <Button size="small" variant="contained" onClick={() => addShaftSize(idx)}
+                              disabled={!newShaftInput.trim() || addingShaft}
+                              sx={{ minWidth: 0, px: 1.5, fontSize: 12, textTransform: 'none', borderRadius: 1.5, bgcolor: '#f57c00', '&:hover': { bgcolor: '#e65100' } }}>
+                              Add
+                            </Button>
+                          </Box>
+                        </MenuItem>
                       </Select>
                     </FormControl>
+                  </Box>
+                )}
+
+                {/* Rate — dispatched only */}
+                {isDispatched && (
+                  <Box flex={1.5}>
+                    {idx === 0 && <Label>Rate (₹)</Label>}
+                    <TextField fullWidth size="small" type="number" placeholder="0"
+                      value={item.rate}
+                      onChange={e => setItem(idx, 'rate', e.target.value)}
+                      inputProps={{ min: 0, step: 0.5, style: { fontWeight: 700 } }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }} />
                   </Box>
                 )}
 

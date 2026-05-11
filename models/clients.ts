@@ -25,6 +25,13 @@ const clientSchema = new Schema({
       comment: { type: String, default: '' },
     },
   ],
+  fanRates: [
+    {
+      shaftSize: String,
+      rate: Number,
+      updatedAt: { type: Date, default: Date.now },
+    },
+  ],
 })
 
 const Clients = mongoose.models.Clients || mongoose.model('Clients', clientSchema)

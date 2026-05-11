@@ -3,10 +3,17 @@ import { connectDB } from '@/lib/mongodb'
 import FanRotorInventory from '@/models/fanRotorInventory'
 import { ok, err } from '@/lib/apiHelper'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const client = searchParams.get('client')
+  const type = searchParams.get('type')
+  const filter: Record<string, string> = {}
+  if (client) filter.client = client
+  if (type) filter.type = type
+
   try {
     await connectDB()
-    const rotors = await FanRotorInventory.find().sort({ date: -1 })
+    const rotors = await FanRotorInventory.find(filter).sort({ date: -1 })
     return ok(rotors)
   } catch (e: unknown) {
     return err(e instanceof Error ? e.message : 'Server error', 404)

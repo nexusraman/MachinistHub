@@ -26,9 +26,7 @@ import SnackbarMessage from '../Utils/Snackbar'
 // ── constants ──────────────────────────────────────────────────────────────
 const submersibleSizes = [3, 4, 4.5, 5, '5v4', 5.5, '5.5v4', 6, '6v4', '7v3', '7v4', 8, 9, 10, 11, 12, 13, 15, 'Repair']
 const fanRotorSizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
-const fanShaftSizes = ['Farata Relxo', 'Farata Goltu', 'CK Goltu', 'CK Relxo', 'ABC', 'Dhokha']
 const rotorInventorySizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
-const rotorShaftSizes = ['Small', 'Medium', 'Large', '6"', '7"', '8"', '10"', '12"']
 
 type InventoryItem = { rotorSize: string; received: number; dispatched: number; available: number }
 type RotorItemRow = { rotorSize: string; quantity: string; shaftSize: string }
@@ -193,9 +191,29 @@ const FanRotorsForm = ({ clients }: { clients: { name: string; category: string;
   const [items, setItems] = useState<RotorItemRow[]>([{ rotorSize: '', quantity: '', shaftSize: '' }])
   const [submitting, setSubmitting] = useState(false)
   const [snack, setSnack] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' })
+  const [shaftSizes, setShaftSizes] = useState<string[]>([])
+  const [newShaftInput, setNewShaftInput] = useState('')
+  const [addingShaft, setAddingShaft] = useState(false)
 
   const fetchInventory = () => axios.get('/api/fanRotor/inventory').then(res => setInventory(res.data)).catch(() => {})
-  useEffect(() => { fetchInventory() }, [])
+  useEffect(() => {
+    fetchInventory()
+    axios.get('/api/shaftSizes').then(res => setShaftSizes(res.data)).catch(() => {})
+  }, [])
+
+  const addShaftSize = async (idx: number) => {
+    const name = newShaftInput.trim()
+    if (!name) return
+    setAddingShaft(true)
+    try {
+      await axios.post('/api/shaftSizes', { name })
+      setShaftSizes(prev => prev.includes(name) ? prev : [...prev, name])
+      setItem(idx, 'shaftSize', name)
+      setNewShaftInput('')
+    } finally {
+      setAddingShaft(false)
+    }
+  }
 
   const showSnack = (msg: string, severity: 'success' | 'error' = 'success') => setSnack({ open: true, message: msg, severity })
   const setItem = (idx: number, f: keyof RotorItemRow, v: string) => setItems(p => p.map((r, i) => i === idx ? { ...r, [f]: v } : r))
@@ -284,7 +302,22 @@ const FanRotorsForm = ({ clients }: { clients: { name: string; category: string;
                 <FormControl fullWidth size="small">
                   <Select value={item.shaftSize} onChange={e => setItem(idx, 'shaftSize', e.target.value)} displayEmpty sx={{ borderRadius: 1.5 }}>
                     <MenuItem value="" disabled><em style={{ color: '#aaa' }}>Shaft…</em></MenuItem>
-                    {fanShaftSizes.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
+                    {shaftSizes.map((s, i) => <MenuItem key={i} value={s}>{s}</MenuItem>)}
+                    <MenuItem disableRipple value="__new__" sx={{ p: 0 }} onClickCapture={e => e.stopPropagation()}>
+                      <Box display="flex" gap={0.5} px={1} py={0.5} width="100%" onClick={e => e.stopPropagation()}>
+                        <TextField size="small" placeholder="New size…" value={newShaftInput}
+                          onChange={e => setNewShaftInput(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addShaftSize(idx) } }}
+                          onClick={e => e.stopPropagation()}
+                          inputProps={{ style: { fontSize: 13 } }}
+                          sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }} />
+                        <Button size="small" variant="contained" onClick={() => addShaftSize(idx)}
+                          disabled={!newShaftInput.trim() || addingShaft}
+                          sx={{ minWidth: 0, px: 1.5, fontSize: 12, textTransform: 'none', borderRadius: 1.5, bgcolor: '#f57c00', '&:hover': { bgcolor: '#e65100' } }}>
+                          Add
+                        </Button>
+                      </Box>
+                    </MenuItem>
                   </Select>
                 </FormControl>
               </Box>

@@ -5,10 +5,12 @@ import Navbar from './Navbar'
 import axios from 'axios'
 import {
   Avatar, Box, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
-  Grid, IconButton, Paper, Tab, Table, TableBody, TableCell, TableContainer,
-  TableHead, TableRow, Tabs, Typography,
+  Grid, IconButton, InputAdornment, Paper, Tab, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Tabs, TextField, Tooltip, Typography,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import SearchIcon from '@mui/icons-material/Search'
+import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import PayeeDetailModal from './Utils/PayeeDetailModal'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
@@ -22,10 +24,10 @@ import BarChartIcon from '@mui/icons-material/BarChart'
 import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import {
   ArcElement, Chart as ChartJS, CategoryScale, LinearScale, BarElement,
-  LineElement, PointElement, Title, Tooltip, Legend, Filler,
+  LineElement, PointElement, Title, Tooltip as ChartTooltip, Legend, Filler,
 } from 'chart.js'
 
-ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler)
+ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, ChartTooltip, Legend, Filler)
 
 type Period = 'week' | 'month' | 'year'
 
@@ -123,13 +125,15 @@ const PERIOD_LABELS: Record<Period, string> = { week: 'This Week', month: 'This 
 export default function Dashboard() {
   const [period, setPeriod] = useState<Period>('month')
   const [clients, setClients] = useState<{ _id: string; name: string; balance: number; calculatedBalance?: number; category: string }[]>([])
-  const [allIncome, setAllIncome] = useState<{ date: string; amount: number; reason: string; client?: string }[]>([])
-  const [allExpenses, setAllExpenses] = useState<{ date: string; amount: number; reason: string; payee?: string }[]>([])
+  const [allIncome, setAllIncome] = useState<{ date: string; amount: number; reason: string; client?: string; comment?: string; medium?: string; paymentId?: string }[]>([])
+  const [allExpenses, setAllExpenses] = useState<{ date: string; amount: number; reason: string; payee?: string; comment?: string }[]>([])
   const [allSubEntries, setAllSubEntries] = useState<{ date: string; quantity: number }[]>([])
   const [allFanEntries, setAllFanEntries] = useState<{ date: string; quantity: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [payeeModal, setPayeeModal] = useState<string | null>(null)
   const [clientModal, setClientModal] = useState<string | null>(null)
+  const [txnModal, setTxnModal] = useState<'income' | 'expense' | null>(null)
+  const [txnSearch, setTxnSearch] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -443,6 +447,7 @@ export default function Dashboard() {
                     <TrendingUpIcon sx={{ color: '#2e7d32', fontSize: 18 }} />
                     <Typography fontWeight={700} fontSize={14}>Recent Income</Typography>
                     <Chip label={income.length} size="small" sx={{ ml: 'auto', bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }} />
+                    <Tooltip title="View all & search"><IconButton size="small" onClick={() => { setTxnSearch(''); setTxnModal('income') }}><OpenInFullIcon fontSize="small" /></IconButton></Tooltip>
                   </Box>
                   <TableContainer sx={{ maxHeight: 220 }}>
                     <Table size="small">
@@ -474,6 +479,7 @@ export default function Dashboard() {
                     <TrendingDownIcon sx={{ color: '#c62828', fontSize: 18 }} />
                     <Typography fontWeight={700} fontSize={14}>Recent Expenses</Typography>
                     <Chip label={expenses.length} size="small" sx={{ ml: 'auto', bgcolor: '#ffebee', color: '#c62828', fontWeight: 600 }} />
+                    <Tooltip title="View all & search"><IconButton size="small" onClick={() => { setTxnSearch(''); setTxnModal('expense') }}><OpenInFullIcon fontSize="small" /></IconButton></Tooltip>
                   </Box>
                   <TableContainer sx={{ maxHeight: 220 }}>
                     <Table size="small">
@@ -510,6 +516,115 @@ export default function Dashboard() {
       {payeeModal && (
         <PayeeDetailModal payee={payeeModal} expenses={allExpenses} open={!!payeeModal} onClose={() => setPayeeModal(null)} />
       )}
+
+      {/* All Income / All Expenses search modal */}
+      <Dialog open={!!txnModal} onClose={() => setTxnModal(null)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 700, pb: 1 }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            {txnModal === 'income'
+              ? <TrendingUpIcon sx={{ color: '#2e7d32' }} />
+              : <TrendingDownIcon sx={{ color: '#c62828' }} />}
+            <Typography fontWeight={700} fontSize={18}>
+              {txnModal === 'income' ? 'All Income' : 'All Expenses'}
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setTxnModal(null)} size="small"><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {(() => {
+            const isIncome = txnModal === 'income'
+            const allRecords = isIncome
+              ? [...allIncome].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+              : [...allExpenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+            const q = txnSearch.trim().toLowerCase()
+            const filtered = q
+              ? allRecords.filter(r => {
+                  const name = isIncome ? (r as typeof allIncome[0]).client : (r as typeof allExpenses[0]).payee
+                  return (
+                    (name ?? '').toLowerCase().includes(q) ||
+                    r.reason.toLowerCase().includes(q) ||
+                    (r.comment ?? '').toLowerCase().includes(q)
+                  )
+                })
+              : allRecords
+            const total = filtered.reduce((s, r) => s + r.amount, 0)
+            const color = isIncome ? '#2e7d32' : '#c62828'
+            const bgColor = isIncome ? '#e8f5e9' : '#ffebee'
+            return (
+              <>
+                <Box sx={{ px: 3, py: 1.5, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Box flex={1} minWidth={220}>
+                    <TextField
+                      size="small" fullWidth
+                      placeholder={isIncome ? 'Search by client, reason, note…' : 'Search by payee, reason, note…'}
+                      value={txnSearch}
+                      onChange={e => setTxnSearch(e.target.value)}
+                      InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} /></InputAdornment> }}
+                      autoFocus
+                    />
+                  </Box>
+                  <Box display="flex" gap={3}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</Typography>
+                      <Typography fontWeight={700} sx={{ color }} fontSize={18}>{fmtCur(total)}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>Showing</Typography>
+                      <Typography fontWeight={700} fontSize={18}>{filtered.length}</Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                <TableContainer sx={{ maxHeight: 520 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <HeadCell>{isIncome ? 'Client' : 'Payee'}</HeadCell>
+                        <HeadCell>Reason</HeadCell>
+                        <HeadCell>Amount</HeadCell>
+                        {isIncome && <HeadCell>Via</HeadCell>}
+                        <HeadCell>Note</HeadCell>
+                        <HeadCell>Date</HeadCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {filtered.map((r, i) => {
+                        const incomeR = r as typeof allIncome[0]
+                        const expenseR = r as typeof allExpenses[0]
+                        const name = isIncome ? incomeR.client : expenseR.payee
+                        return (
+                          <TableRow key={i} hover sx={{ '&:last-child td': { border: 0 } }}>
+                            <TableCell sx={{ fontWeight: 600, fontSize: 13 }}>
+                              {name
+                                ? <Typography component="span" fontWeight={600} fontSize={13}
+                                    onClick={() => isIncome ? setClientModal(name!) : setPayeeModal(name!)}
+                                    sx={{ cursor: 'pointer', color: '#1976d2', '&:hover': { textDecoration: 'underline' } }}>
+                                    {name}
+                                  </Typography>
+                                : '—'}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 13, color: 'text.secondary' }}>{r.reason}</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color, fontSize: 13 }}>{fmtCur(r.amount)}</TableCell>
+                            {isIncome && <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{incomeR.medium ?? '—'}</TableCell>}
+                            <TableCell sx={{ fontSize: 12, color: 'text.secondary', maxWidth: 180 }}>
+                              {r.comment
+                                ? <Tooltip title={r.comment}><Typography noWrap fontSize={12} sx={{ maxWidth: 160 }}>{r.comment}</Typography></Tooltip>
+                                : '—'}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{fmtDate(r.date)}</TableCell>
+                          </TableRow>
+                        )
+                      })}
+                      {filtered.length === 0 && (
+                        <TableRow><TableCell colSpan={isIncome ? 6 : 5} align="center" sx={{ py: 4, color: 'text.disabled' }}>No records found.</TableCell></TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
 
       {/* Client income modal */}
       <Dialog open={!!clientModal} onClose={() => setClientModal(null)} maxWidth="sm" fullWidth>
