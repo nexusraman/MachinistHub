@@ -132,6 +132,7 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
   const [rateDialog, setRateDialog] = useState(false)
   const [editShaft, setEditShaft] = useState('')
   const [editRate, setEditRate] = useState('')
+  const [rateError, setRateError] = useState('')
   const [newShaftName, setNewShaftName] = useState('')
   const [addingShaft, setAddingShaft] = useState(false)
   const [savingRate, setSavingRate] = useState(false)
@@ -172,16 +173,19 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
   const openRateDialog = (shaft = '') => {
     setEditShaft(shaft)
     setEditRate(shaft ? String(currentRate(shaft)?.rate ?? '') : '')
+    setRateError('')
     setRateDialog(true)
   }
 
   const saveRate = async () => {
     if (!editShaft || !editRate) return
-    setSavingRate(true)
+    setSavingRate(true); setRateError('')
     try {
       const res = await axios.patch(`/api/client/${initialClient._id}/fanRates`, { shaftSize: editShaft, rate: Number(editRate) })
       setFanRates(res.data)
       setRateDialog(false)
+    } catch (e: unknown) {
+      setRateError((e as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to save rate.')
     } finally { setSavingRate(false) }
   }
 
@@ -417,6 +421,7 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
                       <HeadCell>Shaft</HeadCell>
                       <HeadCell>Rate</HeadCell>
                       <HeadCell>Qty</HeadCell>
+                      <HeadCell>Total</HeadCell>
                       <HeadCell>{''}</HeadCell>
                     </TableRow>
                   </TableHead>
@@ -428,6 +433,9 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
                         <TableCell sx={{ fontSize: 13 }}>{e.shaftSize}</TableCell>
                         <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{e.rate ? `₹${e.rate}` : '—'}</TableCell>
                         <TableCell sx={{ fontWeight: 700 }}>{e.quantity}</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: INDIGO_DARK }}>
+                          {e.rate && e.quantity ? fmtCur(e.rate * e.quantity) : '—'}
+                        </TableCell>
                         <TableCell sx={{ py: 0.5, whiteSpace: 'nowrap' }}>
                           <IconButton size="small" onClick={() => openEntryDialog(e)} sx={{ color: INDIGO, opacity: 0.6, '&:hover': { opacity: 1 } }}>
                             <EditIcon sx={{ fontSize: 15 }} />
@@ -439,7 +447,7 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
                       </TableRow>
                     ))}
                     {filteredEntries.length === 0 && (
-                      <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.disabled' }}>No dispatches in this period.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.disabled' }}>No dispatches in this period.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -692,6 +700,7 @@ const FanClient = ({ client: initialClient }: { client: Client }) => {
               InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
           </Box>
+          {rateError && <Typography color="error" fontSize={13}>{rateError}</Typography>}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
           <Button onClick={() => setRateDialog(false)} sx={{ textTransform: 'none', borderRadius: 2 }}>Cancel</Button>
