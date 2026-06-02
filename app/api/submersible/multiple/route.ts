@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       const generatedSubId = nanoid()
       const newSub = new Submersible({ ...sub, subId: generatedSubId })
       const client = await Clients.findOne({ name: sub.client })
-      const rate = getRate(sub.client, sub.rotorSize)
+      const rate = getRate(sub.client, sub.rotorSize, client?.rateCategory)
       const amount = parseInt(sub.quantity) * rate
       const entry = { subId: generatedSubId, date: sub.date, size: sub.rotorSize, quantity: sub.quantity }
 

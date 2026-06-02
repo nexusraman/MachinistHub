@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     await connectDB()
     const newSub = new Submersible({ ...body, subId: generatedSubId })
     const client = await Clients.findOne({ name: body.client })
-    const rate = getRate(body.client, body.rotorSize)
+    const rate = getRate(body.client, body.rotorSize, client?.rateCategory)
     const entryAmount = parseInt(body.quantity) * rate
 
     const entry = { subId: generatedSubId, date: body.date, size: body.rotorSize, quantity: body.quantity }

@@ -44,8 +44,28 @@ const rateList: Record<string, Record<string, number>> = {
 
 export default rateList
 
-export function getRate(clientName: string, size: string): number {
-  const clientKey = clientName.toLowerCase()
-  const rates = rateList[clientKey] || {}
+export const rateCategoryMap: Record<string, Record<string, number>> = {
+  common: commonRates,
+  kalerTinku: kalerTinkuRates,
+  gaddi: gaddiRates,
+  arun: arunRates,
+  santosh: santoshRates,
+  vickyGroup: vickyGroupRates,
+}
+
+export const rateCategoryLabels: Record<string, string> = {
+  common: 'Common',
+  kalerTinku: 'Kaler / Tinku',
+  gaddi: 'Gaddi',
+  arun: 'Arun',
+  santosh: 'Santosh',
+  vickyGroup: 'Vicky Group',
+}
+
+export function getRate(clientName: string, size: string, rateCategory?: string): number {
+  if (rateCategory && rateCategoryMap[rateCategory]) {
+    return rateCategoryMap[rateCategory][size] || 0
+  }
+  const rates = rateList[clientName.toLowerCase()] || {}
   return rates[size] || 0
 }

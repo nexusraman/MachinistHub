@@ -7,6 +7,7 @@ const clientSchema = new Schema({
   calculatedBalance: Number,
   category: String,
   active: { type: Boolean, default: true },
+  rateCategory: { type: String, default: 'common' },
   entries: [
     {
       subId: { type: String, required: true },

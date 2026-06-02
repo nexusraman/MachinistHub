@@ -9,15 +9,16 @@ import {
   InputLabel, MenuItem, Select, Snackbar, Switch, Tab, Tabs, TextField,
   Tooltip, Typography,
 } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import PhoneIcon from '@mui/icons-material/Phone'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import ElectricBoltIcon from '@mui/icons-material/ElectricBolt'
 import WaterIcon from '@mui/icons-material/Water'
 import PeopleIcon from '@mui/icons-material/People'
-import AddIcon from '@mui/icons-material/Add'
 import PersonOffIcon from '@mui/icons-material/PersonOff'
 import { useRouter } from 'next/navigation'
+import { rateCategoryLabels } from '@/utils/RateList'
 
 interface Client {
   _id: string
@@ -27,6 +28,7 @@ interface Client {
   calculatedBalance?: number
   category: string
   active?: boolean
+  rateCategory?: string
 }
 
 function getInitials(name: string) {
@@ -52,7 +54,7 @@ const STATUS_TABS = [
   { value: 'all', label: 'All' },
 ]
 
-const emptyForm = { name: '', phone: '', category: 'submersible', balance: '' }
+const emptyForm = { name: '', phone: '', category: 'submersible', balance: '', rateCategory: 'common' }
 
 const Clients = () => {
   const [clients, setClients] = useState<Client[]>([])
@@ -113,13 +115,15 @@ const Clients = () => {
     if (!form.name.trim() || !form.category) return
     setSaving(true)
     try {
-      const res = await axios.post('/api/client', {
+      const payload: Record<string, unknown> = {
         name: form.name.trim(),
         phone: form.phone.trim(),
         category: form.category,
         balance: Number(form.balance) || 0,
         active: true,
-      })
+      }
+      if (form.category === 'submersible') payload.rateCategory = form.rateCategory
+      const res = await axios.post('/api/client', payload)
       setClients(prev => [...prev, res.data])
       setAddOpen(false)
       setForm(emptyForm)
@@ -328,6 +332,20 @@ const Clients = () => {
               <MenuItem value="fan">Fan</MenuItem>
             </Select>
           </FormControl>
+          {form.category === 'submersible' && (
+            <FormControl fullWidth>
+              <InputLabel>Rate Category</InputLabel>
+              <Select
+                value={form.rateCategory}
+                label="Rate Category"
+                onChange={e => setForm(f => ({ ...f, rateCategory: e.target.value }))}
+              >
+                {Object.entries(rateCategoryLabels).map(([key, label]) => (
+                  <MenuItem key={key} value={key}>{label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <TextField
             label="Opening Balance (₹)"
             type="number"

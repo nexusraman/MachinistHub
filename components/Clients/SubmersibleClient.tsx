@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import {
-  Avatar, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   FormControl, Grid, IconButton, InputAdornment, InputLabel, MenuItem,
   Pagination, Paper, Select, Tab, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Tabs, TextField, Tooltip, Typography,
@@ -11,7 +11,7 @@ import { Download, Edit, DeleteOutline as DeleteIcon, MonetizationOn, ShoppingCa
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { Dayjs } from 'dayjs'
-import rateList, { getRate } from '@/utils/RateList'
+import { rateCategoryMap, rateCategoryLabels } from '@/utils/RateList'
 import { jsPDF } from 'jspdf'
 import axios from 'axios'
 
@@ -19,7 +19,7 @@ const submersibleSizes = [3, 4, 4.5, 5, '5v4', 5.5, '5.5v4', 6, '6v4', '7v3', '7
 
 interface Entry { subId: string; date: string; size: string; quantity: string }
 interface Payment { paymentId?: string; date: string; amount: number; medium?: string; transferMethod?: string; comment?: string }
-interface Client { _id: string; name: string; calculatedBalance?: number; entries: Entry[]; payments: Payment[] }
+interface Client { _id: string; name: string; rateCategory?: string; calculatedBalance?: number; entries: Entry[]; payments: Payment[] }
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmtCur = (n: number) => `₹${Math.abs(n).toLocaleString('en-IN')}`
@@ -103,6 +103,10 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
   const [paymentPage, setPaymentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [statPeriod, setStatPeriod] = useState<'week' | 'month' | 'year'>('month')
+  const [rateCategory, setRateCategory] = useState<string>(
+    initialClient.rateCategory && rateCategoryMap[initialClient.rateCategory] ? initialClient.rateCategory : 'common'
+  )
+  const [savingRate, setSavingRate] = useState(false)
 
   // Local state so edits/adds reflect immediately
   const [entries, setEntries] = useState<Entry[]>(initialClient.entries || [])
@@ -128,7 +132,15 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
   const [pComment, setPComment] = useState('')
   const [savingPay, setSavingPay] = useState(false)
 
-  const rates = (rateList as Record<string, Record<string, number>>)[initialClient.name?.toLowerCase()] || {}
+  const rates = rateCategoryMap[rateCategory] || {}
+
+  const handleRateCategoryChange = async (value: string) => {
+    setRateCategory(value)
+    setSavingRate(true)
+    try {
+      await axios.patch(`/api/client/${initialClient._id}`, { rateCategory: value })
+    } finally { setSavingRate(false) }
+  }
 
   const isInRange = (date: string) => {
     const d = new Date(date)
@@ -160,8 +172,6 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
     return { sales, paid }
   }, [allEntries, payments, statPeriod])
 
-  const isPaid = balance <= 0
-
   // ── Entry dialog ───────────────────────────────────────────────────────────
 
   const openEntryDialog = (entry?: Entry) => {
@@ -181,8 +191,8 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
         await axios.patch(`/api/submersible/${editingSubId}`, { rotorSize: eSize, quantity: Number(eQty), date: eDate.toDate() })
         const oldEntry = entries.find(e => e.subId === editingSubId)
         if (oldEntry) {
-          const oldAmt = Number(oldEntry.quantity) * getRate(initialClient.name, oldEntry.size)
-          const newAmt = Number(eQty) * getRate(initialClient.name, eSize)
+          const oldAmt = Number(oldEntry.quantity) * (rates[oldEntry.size] || 0)
+          const newAmt = Number(eQty) * (rates[eSize] || 0)
           setBalance(prev => prev + (newAmt - oldAmt))
         }
         setEntries(prev => prev.map(e => e.subId === editingSubId
@@ -193,7 +203,7 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
         })
         const newEntry: Entry = { subId: res.data.subId, date: eDate.toISOString(), size: eSize, quantity: eQty }
         setEntries(prev => [newEntry, ...prev])
-        setBalance(prev => prev + Number(eQty) * getRate(initialClient.name, eSize))
+        setBalance(prev => prev + Number(eQty) * (rates[eSize] || 0))
       }
       setEntryDialog(false)
     } catch (e: unknown) {
@@ -326,7 +336,7 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
     <Box>
       {/* Header */}
       <Box sx={{ background: 'linear-gradient(135deg, #1a237e 0%, #0288d1 100%)', color: '#fff', px: 4, py: 3 }}>
-        <Box display="flex" alignItems="center" gap={2} mb={2.5}>
+        <Box display="flex" alignItems="center" gap={2} mb={2.5} flexWrap="wrap">
           <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 52, height: 52 }}>
             <WaterDrop sx={{ fontSize: 28 }} />
           </Avatar>
@@ -334,7 +344,18 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
             <Typography variant="h5" fontWeight={700}>{initialClient.name}</Typography>
             <Chip label="Submersible" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 11 }} />
           </Box>
-          <Box display="flex" gap={1}>
+          <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+            <Select
+              value={rateCategory}
+              onChange={e => handleRateCategoryChange(e.target.value)}
+              size="small"
+              sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: '#fff', borderRadius: 2, minWidth: 150, fontSize: 13, fontWeight: 600, '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.4)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fff' }, '& .MuiSvgIcon-root': { color: '#fff' } }}
+            >
+              {Object.entries(rateCategoryLabels).map(([key, label]) => (
+                <MenuItem key={key} value={key}>{label}</MenuItem>
+              ))}
+            </Select>
+            {savingRate && <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.7)' }} />}
             <Button variant="contained" size="small" startIcon={<Add />} onClick={() => openEntryDialog()}
               sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.2)', '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }, boxShadow: 'none' }}>
               Add Entry
@@ -525,7 +546,7 @@ const SubmersibleClient = ({ client: initialClient }: { client: Client }) => {
               <Box flex={1} display="flex" flexDirection="column" justifyContent="flex-end" pb={0.5}>
                 <Typography variant="caption" color="text.secondary">Rate · Amount</Typography>
                 <Typography fontWeight={700} color="#1976d2">
-                  ₹{getRate(initialClient.name, eSize)} · ₹{(Number(eQty) * getRate(initialClient.name, eSize)).toLocaleString('en-IN')}
+                  ₹{rates[eSize] || 0} · ₹{(Number(eQty) * (rates[eSize] || 0)).toLocaleString('en-IN')}
                 </Typography>
               </Box>
             )}
