@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import Expense from '@/models/expense'
 import { ok, err } from '@/lib/apiHelper'
+import { createExpense, errorStatus } from '@/lib/services/entries'
 
 export async function GET() {
   try {
@@ -14,18 +15,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { payee, reason, amount, date, medium, transferMethod, comment } = await req.json()
-
+  const body = await req.json()
   try {
-    await connectDB()
-    const newExpense = new Expense({
-      payee, reason, amount, date, medium,
-      transferMethod: medium === 'Transfer' ? transferMethod : undefined,
-      comment,
-    })
-    await newExpense.save()
-    return ok(newExpense, 201)
+    const result = await createExpense(body)
+    return ok(result, 201)
   } catch (e: unknown) {
-    return err(e instanceof Error ? e.message : 'Server error')
+    return err(e instanceof Error ? e.message : 'Server error', errorStatus(e, 500))
   }
 }

@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import Income from '@/models/income'
-import Expense from '@/models/expense'
-import Client from '@/models/clients'
-import { nanoid } from 'nanoid'
 import { ok, err } from '@/lib/apiHelper'
+import { createIncome, errorStatus } from '@/lib/services/entries'
 
 export async function GET() {
   try {
@@ -17,58 +15,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { client: clientName, isOneTime, reason, amount, date, medium, transferMethod, comment, linkedExpense } = await req.json()
-  const paymentId = nanoid()
-
+  const body = await req.json()
   try {
-    await connectDB()
-
-    let linkedExpenseId: string | null = null
-
-    if (linkedExpense) {
-      const expenseId = nanoid()
-      const newExpense = new Expense({
-        expenseId,
-        payee: linkedExpense.payee,
-        reason: linkedExpense.reason,
-        amount: linkedExpense.amount,
-        date,
-        medium: linkedExpense.medium,
-        transferMethod: linkedExpense.medium === 'Transfer' ? linkedExpense.transferMethod : undefined,
-        comment: linkedExpense.comment || '',
-      })
-      await newExpense.save()
-      linkedExpenseId = newExpense._id.toString()
-      await Expense.findByIdAndUpdate(newExpense._id, { linkedIncomeId: paymentId })
-    }
-
-    const newIncome = new Income({
-      paymentId, client: clientName || 'One-Time', reason, amount, date, medium,
-      transferMethod: medium === 'Transfer' ? transferMethod : undefined,
-      comment,
-      linkedExpenseId,
-    })
-
-    // One-time income: skip client balance update
-    if (!isOneTime) {
-      const client = await Client.findOne({ name: clientName })
-      if (!client) return err('Client not found', 404)
-
-      if (client.calculatedBalance === 0 || client.calculatedBalance === undefined) {
-        client.calculatedBalance = client.balance
-      }
-      client.calculatedBalance -= amount
-      client.payments.push({
-        date, amount, paymentId, medium,
-        transferMethod: medium === 'Transfer' ? transferMethod : undefined,
-        comment: comment || '',
-      })
-      await client.save({ validateModifiedOnly: true })
-    }
-
-    await newIncome.save()
-    return ok(newIncome, 201)
+    const result = await createIncome(body)
+    return ok(result, 201)
   } catch (e: unknown) {
-    return err(e instanceof Error ? e.message : 'Server error')
+    return err(e instanceof Error ? e.message : 'Server error', errorStatus(e, 500))
   }
 }

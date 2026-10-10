@@ -1,10 +1,8 @@
 import { NextRequest } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import Submersible from '@/models/Submersible'
-import Clients from '@/models/clients'
-import { nanoid } from 'nanoid'
-import { getRate } from '@/utils/RateList'
 import { ok, err } from '@/lib/apiHelper'
+import { createSubmersible, errorStatus } from '@/lib/services/entries'
 
 export async function GET() {
   try {
@@ -18,24 +16,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const generatedSubId = nanoid()
-
   try {
-    await connectDB()
-    const newSub = new Submersible({ ...body, subId: generatedSubId })
-    const client = await Clients.findOne({ name: body.client })
-    const rate = getRate(body.client, body.rotorSize, client?.rateCategory)
-    const entryAmount = parseInt(body.quantity) * rate
-
-    const entry = { subId: generatedSubId, date: body.date, size: body.rotorSize, quantity: body.quantity }
-
-    await Clients.findOneAndUpdate(
-      { _id: client._id },
-      { $push: { entries: entry }, $inc: { calculatedBalance: entryAmount } }
-    )
-    await newSub.save()
-    return ok(newSub, 201)
+    const result = await createSubmersible(body)
+    return ok(result, 201)
   } catch (e: unknown) {
-    return err(e instanceof Error ? e.message : 'Server error', 409)
+    return err(e instanceof Error ? e.message : 'Server error', errorStatus(e, 409))
   }
 }

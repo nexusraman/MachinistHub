@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import Fan from '@/models/fan'
 import { ok, err } from '@/lib/apiHelper'
+import { createFan, errorStatus } from '@/lib/services/entries'
 
 export async function GET() {
   try {
@@ -15,13 +16,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-
   try {
-    await connectDB()
-    const newFan = new Fan(body)
-    await newFan.save()
-    return ok(newFan, 201)
+    const result = await createFan(body)
+    return ok(result, 201)
   } catch (e: unknown) {
-    return err(e instanceof Error ? e.message : 'Server error', 409)
+    return err(e instanceof Error ? e.message : 'Server error', errorStatus(e, 409))
   }
 }

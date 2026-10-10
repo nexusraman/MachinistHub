@@ -22,11 +22,12 @@ import {
 } from '@mui/material'
 import dayjs, { Dayjs } from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
+import { FAN_ROTOR_SIZES, SUBMERSIBLE_SIZES } from '@/utils/entryOptions'
 
 // ── constants ──────────────────────────────────────────────────────────────
-const submersibleSizes = [3, 4, 4.5, 5, '5v4', 5.5, '5.5v4', 6, '6v4', '7v3', '7v4', 8, 9, 10, 11, 12, 13, 15, 'Repair']
-const fanRotorSizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
-const rotorInventorySizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
+const submersibleSizes = SUBMERSIBLE_SIZES
+const fanRotorSizes = FAN_ROTOR_SIZES
+const rotorInventorySizes = FAN_ROTOR_SIZES
 
 type InventoryItem = { rotorSize: string; received: number; dispatched: number; available: number }
 type RotorItemRow = { rotorSize: string; quantity: string; shaftSize: string }
@@ -362,8 +363,8 @@ const FanForm = ({ clients }: { clients: { name: string; category: string; activ
 )
 
 // ── Main DataEntry ─────────────────────────────────────────────────────────
-const DataEntry = () => {
-  const [outerTab, setOuterTab] = useState(0)
+const DataEntry = ({ initialTab = 0 }: { initialTab?: number }) => {
+  const [outerTab, setOuterTab] = useState(initialTab)
   const [clients, setClients] = useState<{ name: string; category: string; active?: boolean }[]>([])
 
   useEffect(() => {

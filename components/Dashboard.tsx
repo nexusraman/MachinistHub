@@ -1,10 +1,12 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSnackbar } from 'notistack'
 import Navbar from './Navbar'
 import axios from 'axios'
 import {
-  Avatar, Box, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
+  Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogContent, DialogTitle,
   Grid, IconButton, InputAdornment, Paper, Tab, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Tabs, TextField, Tooltip, Typography,
 } from '@mui/material'
@@ -21,6 +23,10 @@ import ElectricBoltIcon from '@mui/icons-material/ElectricBolt'
 import EngineeringIcon from '@mui/icons-material/Engineering'
 import PieChartIcon from '@mui/icons-material/PieChart'
 import BarChartIcon from '@mui/icons-material/BarChart'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import { DATA_CHANGED_EVENT, EXPENSE_REASONS } from '@/utils/entryOptions'
 import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import {
   ArcElement, Chart as ChartJS, CategoryScale, LinearScale, BarElement,
@@ -29,7 +35,7 @@ import {
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, ChartTooltip, Legend, Filler)
 
-type Period = 'week' | 'month' | 'year'
+type Period = 'today' | 'week' | 'month' | 'year'
 
 const fmtCur = (n: number) => `₹${Math.abs(n).toLocaleString('en-IN')}`
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
@@ -37,6 +43,11 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-IN', { day: '2
 /** Start and end timestamps for the selected period */
 function periodRange(period: Period): { start: Date; end: Date } {
   const now = new Date()
+  if (period === 'today') {
+    const start = new Date(now)
+    start.setHours(0, 0, 0, 0)
+    return { start, end: now }
+  }
   if (period === 'week') {
     const start = new Date(now)
     start.setDate(now.getDate() - 6)
@@ -58,6 +69,7 @@ function inRange(dateStr: string, start: Date, end: Date) {
 /** Build chart labels for the period */
 function chartLabels(period: Period): string[] {
   const now = new Date()
+  if (period === 'today') return [now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })]
   if (period === 'week') {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(now)
@@ -120,7 +132,7 @@ const HeadCell = ({ children }: { children: React.ReactNode }) => (
   </TableCell>
 )
 
-const PERIOD_LABELS: Record<Period, string> = { week: 'This Week', month: 'This Month', year: 'This Year' }
+const PERIOD_LABELS: Record<Period, string> = { today: 'Today', week: 'This Week', month: 'This Month', year: 'This Year' }
 
 export default function Dashboard() {
   const [period, setPeriod] = useState<Period>('month')
@@ -135,21 +147,44 @@ export default function Dashboard() {
   const [txnModal, setTxnModal] = useState<'income' | 'expense' | null>(null)
   const [txnSearch, setTxnSearch] = useState('')
 
-  useEffect(() => {
-    Promise.all([
+  const router = useRouter()
+  const { enqueueSnackbar } = useSnackbar()
+  const [refreshing, setRefreshing] = useState(false)
+
+  const loadData = useCallback(() => {
+    return Promise.all([
       axios.get('/api/client'),
       axios.get('/api/income'),
       axios.get('/api/expense'),
       axios.get('/api/submersible'),
       axios.get('/api/fan'),
-    ]).then(([c, inc, exp, sub, fan]) => {
+      axios.get('/api/fanRotor', { params: { type: 'dispatched' } }),
+    ]).then(([c, inc, exp, sub, fan, fanRotor]) => {
       setClients(c.data)
       setAllIncome(inc.data)
       setAllExpenses(exp.data)
       setAllSubEntries(sub.data)
-      setAllFanEntries(fan.data)
-    }).finally(() => setLoading(false))
-  }, [])
+      // Older fan entries live in /api/fan; current ones are dispatched fan rotors
+      setAllFanEntries([...fan.data, ...fanRotor.data])
+    }).catch(() => {
+      enqueueSnackbar('Could not load dashboard data', { variant: 'error' })
+    }).finally(() => {
+      setLoading(false)
+      setRefreshing(false)
+    })
+  }, [enqueueSnackbar])
+
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    loadData()
+  }, [loadData])
+
+  useEffect(() => {
+    loadData()
+    // Refresh when entries are saved from the AI quick-log panel
+    window.addEventListener(DATA_CHANGED_EVENT, refresh)
+    return () => window.removeEventListener(DATA_CHANGED_EVENT, refresh)
+  }, [loadData, refresh])
 
   const { start, end } = useMemo(() => periodRange(period), [period])
   const labels = useMemo(() => chartLabels(period), [period])
@@ -196,7 +231,7 @@ export default function Dashboard() {
     labels,
     datasets: [
       { label: 'Submersible', data: subByLabel, backgroundColor: 'rgba(2,136,209,0.75)', borderRadius: 4 },
-      { label: 'Fan', data: fanByLabel, backgroundColor: 'rgba(245,124,0,0.75)', borderRadius: 4 },
+      { label: 'Fan (dispatched)', data: fanByLabel, backgroundColor: 'rgba(245,124,0,0.75)', borderRadius: 4 },
     ],
   }
   const barOptions = {
@@ -231,7 +266,7 @@ export default function Dashboard() {
   const miscRevenue = income.filter(r => r.reason === 'Misc').reduce((s, r) => s + r.amount, 0)
 
   // Expense breakdown by category
-  const EXPENSE_CATEGORIES = ['Labour Cost', 'Raw Material', 'Logistics', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc']
+  const EXPENSE_CATEGORIES = EXPENSE_REASONS
   const EXPENSE_COLORS = ['#1565c0', '#6a1b9a', '#00695c', '#e65100', '#4e342e', '#f9a825', '#2e7d32', '#546e7a']
   const expenseByCategory = EXPENSE_CATEGORIES.map(cat => expenses.filter(e => e.reason === cat).reduce((s, e) => s + e.amount, 0))
   const laborCost = expenseByCategory[0]
@@ -278,12 +313,23 @@ export default function Dashboard() {
       {/* Header with period tabs */}
       <Box sx={{ background: 'linear-gradient(135deg, #1a237e 0%, #0288d1 100%)', color: '#fff', px: 4, py: 3 }}>
         <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2} mb={2}>
-          <Typography variant="h5" fontWeight={700}>Dashboard</Typography>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Typography variant="h5" fontWeight={700}>Dashboard</Typography>
+            <Tooltip title="Refresh">
+              <span>
+                <IconButton size="small" onClick={refresh} disabled={refreshing} sx={{ color: '#fff' }} aria-label="Refresh dashboard">
+                  {refreshing ? <CircularProgress size={18} color="inherit" /> : <RefreshIcon fontSize="small" />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Box>
 
           {/* Period selector */}
           <Tabs
             value={period}
             onChange={(_, v) => setPeriod(v)}
+            variant="scrollable"
+            scrollButtons={false}
             sx={{
               minHeight: 34,
               bgcolor: 'rgba(255,255,255,0.12)',
@@ -294,6 +340,7 @@ export default function Dashboard() {
               '& .MuiTabs-indicator': { display: 'none' },
             }}
           >
+            <Tab label="Today" value="today" />
             <Tab label="This Week" value="week" />
             <Tab label="This Month" value="month" />
             <Tab label="This Year" value="year" />
@@ -315,7 +362,22 @@ export default function Dashboard() {
         </Box>
       </Box>
 
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 2, sm: 3 } }}>
+        {/* Quick actions */}
+        <Box display="flex" gap={1} flexWrap="wrap" mb={3}>
+          {[
+            { label: 'Submersible', tab: 'submersible', icon: <WaterDropIcon /> },
+            { label: 'Fan rotors', tab: 'fan', icon: <ElectricBoltIcon /> },
+            { label: 'Expense / Income', tab: 'money', icon: <AccountBalanceWalletIcon /> },
+            { label: 'Daily log', tab: 'log', icon: <AssignmentIcon /> },
+          ].map(a => (
+            <Button key={a.tab} variant="outlined" startIcon={a.icon} onClick={() => router.push(`/create?tab=${a.tab}`)}
+              sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 2, bgcolor: '#fff' }}>
+              {a.label}
+            </Button>
+          ))}
+        </Box>
+
         {/* KPI cards */}
         <Grid container spacing={2} mb={3}>
           <Grid item xs={12} sm={6} md={3}>
@@ -326,6 +388,9 @@ export default function Dashboard() {
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <KpiCard icon={<PeopleIcon />} label="Clients" value={String(clients.length)} color="#1976d2" sub={`${paidClients} paid up`} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <KpiCard icon={<AccountBalanceIcon />} label="Outstanding" value={fmtCur(outstanding)} color="#ad1457" sub={`${clients.length - paidClients} clients owe · all time`} />
           </Grid>
         </Grid>
 
@@ -425,7 +490,7 @@ export default function Dashboard() {
                 </Box>
                 <Box display="flex" gap={1}>
                   <Chip label={`${subEntries.reduce((s, e) => s + e.quantity, 0)} sub`} size="small" sx={{ bgcolor: '#e3f2fd', color: '#0277bd', fontWeight: 600, fontSize: 11 }} />
-                  <Chip label={`${fanEntries.reduce((s, e) => s + e.quantity, 0)} fan`} size="small" sx={{ bgcolor: '#fff9c4', color: '#f57f17', fontWeight: 600, fontSize: 11 }} />
+                  <Chip label={`${fanEntries.reduce((s, e) => s + e.quantity, 0)} fan dispatched`} size="small" sx={{ bgcolor: '#fff9c4', color: '#f57f17', fontWeight: 600, fontSize: 11 }} />
                 </Box>
               </Box>
               <Box sx={{ p: 2.5, height: 300 }}>

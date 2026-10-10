@@ -14,8 +14,9 @@ import dayjs, { Dayjs } from 'dayjs'
 import { rateCategoryMap, rateCategoryLabels } from '@/utils/RateList'
 import { jsPDF } from 'jspdf'
 import axios from 'axios'
+import { SUBMERSIBLE_SIZES } from '@/utils/entryOptions'
 
-const submersibleSizes = [3, 4, 4.5, 5, '5v4', 5.5, '5.5v4', 6, '6v4', '7v3', '7v4', 8, 9, 10, 11, 12, 13, 15, 'Repair']
+const submersibleSizes = SUBMERSIBLE_SIZES
 
 interface Entry { subId: string; date: string; size: string; quantity: string }
 interface Payment { paymentId?: string; date: string; amount: number; medium?: string; transferMethod?: string; comment?: string }

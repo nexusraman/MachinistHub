@@ -19,13 +19,14 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs, { Dayjs } from 'dayjs'
 import axios from 'axios'
+import { FAN_ROTOR_SIZES } from '@/utils/entryOptions'
 
 const INDIGO = '#3f51b5'
 const INDIGO_DARK = '#283593'
 const INDIGO_MID = '#3949ab'
 const INDIGO_LIGHT = '#e8eaf6'
 
-const rotorSizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
+const rotorSizes = FAN_ROTOR_SIZES
 
 interface FanRate { shaftSize: string; rate: number; updatedAt?: string }
 interface DispatchEntry { _id?: string; rotorSize: string; shaftSize: string; rate: number; quantity: number; date: string }

@@ -19,16 +19,14 @@ import {
 } from '@mui/material'
 import dayjs from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
+import { EXPENSE_REASONS, INCOME_REASONS, PERSONAL_CATEGORIES } from '@/utils/entryOptions'
 
 type Snack = { open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }
 const defaultRow = { client: '', payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs(), isOneTime: false }
 const defaultLinkedExpense = { payee: '', reason: '', amount: '', medium: 'Cash', transferMethod: '', comment: '' }
 const defaultPersonal = { category: '', description: '', amount: '', medium: 'Cash', transferMethod: '', comment: '', date: dayjs() }
-const reasons = {
-  expense: ['Labour Cost', 'Raw Material', 'Logistics', 'Oil', 'Hardware', 'Electricity', 'Maintenance', 'Misc'],
-  income: ['Fan Payment', 'Submersible Payment', 'Scrap Payment', 'Misc'],
-}
-const personalCategories = ['Groceries', 'Medical', 'School / Education', 'Rent', 'Utilities', 'Travel', 'Clothing', 'Entertainment', 'Misc']
+const reasons = { expense: EXPENSE_REASONS, income: INCOME_REASONS }
+const personalCategories = PERSONAL_CATEGORIES
 
 const Label = ({ children }: { children: React.ReactNode }) => (
   <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, mb: 0.5, display: 'block' }}>

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Box, Tab, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material'
 import StorageIcon from '@mui/icons-material/Storage'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
@@ -15,8 +15,40 @@ const TABS = [
   { label: 'Daily Logs', icon: <AssignmentIcon fontSize="small" />, value: 2 },
 ]
 
+// /create?tab=submersible|fan|money|log opens a specific form
+const TAB_PARAMS: Record<string, { tab: number; entryTab?: number }> = {
+  submersible: { tab: 0, entryTab: 0 },
+  fan: { tab: 0, entryTab: 1 },
+  money: { tab: 1 },
+  log: { tab: 2 },
+}
+const LAST_TAB_KEY = 'mh:lastInputTab'
+
 const InputForm = () => {
-  const [tab, setTab] = useState(0)
+  const [tab, setTabState] = useState(0)
+  const [entryTab, setEntryTab] = useState(0)
+
+  // Link param wins; otherwise reopen the tab used last time.
+  // Read after mount because URL/localStorage aren't available during prerender.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const param = TAB_PARAMS[new URLSearchParams(window.location.search).get('tab') ?? '']
+    if (param) {
+      setTabState(param.tab)
+      if (param.entryTab !== undefined) setEntryTab(param.entryTab)
+      return
+    }
+    try {
+      const saved = Number(localStorage.getItem(LAST_TAB_KEY))
+      if ([0, 1, 2].includes(saved)) setTabState(saved)
+    } catch { /* storage unavailable */ }
+  }, [])
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const setTab = (v: number) => {
+    setTabState(v)
+    try { localStorage.setItem(LAST_TAB_KEY, String(v)) } catch { /* storage unavailable */ }
+  }
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
@@ -51,7 +83,7 @@ const InputForm = () => {
 
       {/* Form content */}
       <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 680, mx: 'auto' }}>
-        {tab === 0 && <DataEntry />}
+        {tab === 0 && <DataEntry key={entryTab} initialTab={entryTab} />}
         {tab === 1 && <ExpenseTracker />}
         {tab === 2 && <DailyLogs />}
       </Box>

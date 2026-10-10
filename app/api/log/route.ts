@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import DailyLog from '@/models/dailyLog'
 import { ok, err } from '@/lib/apiHelper'
+import { createDailyLog, errorStatus } from '@/lib/services/entries'
 
 export async function GET() {
   try {
@@ -14,13 +15,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { date, relatedTo, comment } = await req.json()
-
+  const body = await req.json()
   try {
-    await connectDB()
-    const log = await DailyLog.create({ date, relatedTo, comment })
-    return ok({ success: true, data: log }, 201)
+    const result = await createDailyLog(body)
+    return ok({ success: true, data: result }, 201)
   } catch (e: unknown) {
-    return err(e instanceof Error ? e.message : 'Server error')
+    return err(e instanceof Error ? e.message : 'Server error', errorStatus(e, 500))
   }
 }

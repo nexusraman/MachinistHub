@@ -18,8 +18,9 @@ import {
 } from '@mui/material'
 import dayjs, { Dayjs } from 'dayjs'
 import SnackbarMessage from '../Utils/Snackbar'
+import { FAN_ROTOR_SIZES } from '@/utils/entryOptions'
 
-const rotorSizes = ["6'", "7'", '1"', '1.25"', "6' kit", '1" kit', '1.25 kit']
+const rotorSizes = FAN_ROTOR_SIZES
 
 type InventoryItem = { rotorSize: string; received: number; dispatched: number; available: number }
 type ItemRow = { rotorSize: string; quantity: string; shaftSize: string; rate: string }

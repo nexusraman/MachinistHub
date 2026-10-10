@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import MuiProvider from "@/components/MuiProvider";
+import AgentChat from "@/components/AgentChat";
+import AgentProvider from "@/components/Agent/AgentProvider";
 
 export const metadata: Metadata = {
   title: "MachinistHub",
@@ -17,7 +19,12 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AppRouterCacheProvider>
-          <MuiProvider>{children}</MuiProvider>
+          <MuiProvider>
+            <AgentProvider>
+              {children}
+              <AgentChat />
+            </AgentProvider>
+          </MuiProvider>
         </AppRouterCacheProvider>
       </body>
     </html>
